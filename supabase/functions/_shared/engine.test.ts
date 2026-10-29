@@ -359,13 +359,13 @@ describe('game rules', () => {
     expect(state).toEqual(before)
   })
 
-  it('deals a deterministic 67-card pool with unique card instances', () => {
+  it('deals a deterministic 84-card pool with unique card instances', () => {
     const first = started()
     const second = started()
     expect(
       first.drawPile.length +
         first.players.reduce((n, p) => n + p.hand.length, 0),
-    ).toBe(67)
+    ).toBe(84)
     expect(first.drawPile).toEqual(second.drawPile)
     expect(
       new Set(first.players.flatMap((p) => p.hand.map((c) => c.instanceId)))

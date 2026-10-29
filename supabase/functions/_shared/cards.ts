@@ -46,18 +46,32 @@ const definitions: Array<
     copy: string,
   ]
 > = [
-  ['bug', 'Roll Forward', 'engineering', {}, 150, 'Rolling back is so 2025.'],
   [
-    'bug',
+    'roll-forward',
+    'Roll Forward',
+    'engineering',
+    {},
+    150,
+    'Rolling back is so 2025.',
+  ],
+  [
+    'fix-regression',
     'Fix a Regression',
     'engineering',
     {},
     100,
     'Closed as “works on my machine”.',
   ],
-  ['div', 'Centre a Div', 'engineering', {}, 100, 'Only took six prompts.'],
   [
-    'dark',
+    'centre-div',
+    'Centre a Div',
+    'engineering',
+    {},
+    100,
+    'Only took six prompts.',
+  ],
+  [
+    'accessibility-audit',
     'Accessibility Audit',
     'engineering',
     {},
@@ -65,7 +79,7 @@ const definitions: Array<
     '3% of users complained.',
   ],
   [
-    'div',
+    'css-animations',
     'CSS Animations',
     'engineering',
     {},
@@ -88,10 +102,17 @@ const definitions: Array<
     450,
     'Bloat for the next AI to summarize.',
   ],
-  ['api', 'Ship an API', 'engineering', {}, 350, 'Microservices!'],
-  ['api', 'Ship an API', 'engineering', {}, 500, 'We need GraphQL!'],
+  ['ship-api', 'Ship an API', 'engineering', {}, 350, 'Microservices!'],
   [
-    'backend',
+    'graphql-api',
+    'Ship a GraphQL API',
+    'engineering',
+    {},
+    500,
+    'We need GraphQL!',
+  ],
+  [
+    'rewrite-backend',
     'Rewrite Backend',
     'engineering',
     {},
@@ -99,7 +120,7 @@ const definitions: Array<
     'The old one had too much context.',
   ],
   [
-    'rewrite',
+    'rewrite-rust',
     'Rewrite in Rust',
     'engineering',
     {},
@@ -107,7 +128,7 @@ const definitions: Array<
     "Everything's better in Rust!",
   ],
   [
-    'backend',
+    'auth-layer',
     'Auth Layer',
     'engineering',
     {},
@@ -294,12 +315,18 @@ export const CARDS: Record<string, CardDefinition> = Object.fromEntries(
 )
 
 export const DECK_COUNTS: Record<string, number> = {
-  bug: 6,
-  div: 5,
-  dark: 5,
+  'roll-forward': 3,
+  'fix-regression': 6,
+  'centre-div': 5,
+  'css-animations': 4,
+  'accessibility-audit': 5,
   refactor: 5,
-  api: 4,
-  backend: 3,
+  documentation: 3,
+  'ship-api': 4,
+  'graphql-api': 3,
+  'rewrite-backend': 2,
+  'rewrite-rust': 2,
+  'auth-layer': 3,
   mvp: 2,
   sonnet: 3,
   opus: 2,
@@ -321,4 +348,16 @@ export const DECK_COUNTS: Record<string, number> = {
   freeze: 1,
   outage: 1,
   caveman: 1,
+}
+
+// Saved games use these IDs; keep their original resolved card meanings.
+for (const [legacyId, id] of Object.entries({
+  bug: 'fix-regression',
+  div: 'css-animations',
+  dark: 'accessibility-audit',
+  api: 'graphql-api',
+  backend: 'auth-layer',
+  rewrite: 'rewrite-rust',
+})) {
+  Object.defineProperty(CARDS, legacyId, { value: CARDS[id] })
 }
