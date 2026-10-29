@@ -99,7 +99,8 @@ button svg {
 }
 .line-through-title {
   position: relative;
-  opacity: 0.5;
+  opacity: 0.2;
+  user-select: none;
 }
 .line-through-title::after {
   content: '';
@@ -107,7 +108,7 @@ button svg {
   left: -0.1em;
   right: -0.1em;
   top: calc(50% - 0.05em);
-  height: 0.15em;
+  height: 0.12em;
   background: currentColor;
   border: solid 0.02em #101112;
   transform: rotate(-3deg);
