@@ -406,6 +406,29 @@ input::placeholder {
   background-size: 7px 7px;
   overflow: hidden;
 }
+.art-engineer {
+  container-type: size;
+  background: none;
+}
+.engineering-value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+}
+.engineering-value strong {
+  font:
+    900 clamp(40px, 72cqh, 110px)/0.85 'Barlow Condensed',
+    sans-serif;
+  letter-spacing: -2px;
+}
+.engineering-value > span {
+  font: 700 9px var(--font-mono);
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
 .art-code {
   font:
     800 52px/0.8 'Barlow Condensed',
@@ -473,32 +496,6 @@ input::placeholder {
   margin: 7px 0 10px;
   min-height: 26px;
 }
-.card-bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid #0003;
-  padding-top: 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-}
-.card-bottom > span {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-.card-bottom svg {
-  font-size: 12px;
-}
-.card-bottom small {
-  font-size: 8px;
-  font-weight: 400;
-}
-.card-bottom .card-effect-label {
-  font-size: 8px;
-  letter-spacing: 0.5px;
-}
 .hero-card {
   position: absolute;
   width: 220px;
@@ -529,9 +526,6 @@ input::placeholder {
 .hero-card .art-orbit {
   width: 140px;
   height: 140px;
-}
-.hero-card .card-bottom {
-  padding-top: 13px;
 }
 .hero-card-back {
   left: 8%;
@@ -820,7 +814,7 @@ input::placeholder {
 }
 
 .in-game {
-  --hand-card-height: clamp(180px, 32dvh, 260px);
+  --hand-card-height: clamp(220px, 32dvh, 260px);
   --hand-height: calc(
     var(--hand-card-height) + 84px + env(safe-area-inset-bottom)
   );
@@ -1319,17 +1313,7 @@ input::placeholder {
   font-size: 13px;
   min-height: 38px;
 }
-.hand-card .card-bottom {
-  font-size: 13px;
-}
 .hand-card .card-top {
-  font-size: 9px;
-}
-.hand-card .card-bottom small {
-  font-size: 10px;
-  font-weight: 600;
-}
-.hand-card .card-effect-label {
   font-size: 9px;
 }
 .card-badge {
@@ -1733,10 +1717,15 @@ input::placeholder {
     justify-content: center;
     padding: 4px 8px;
   }
-  .played-card .card-top {
+  .played-card .card-top,
+  .table-bottomline {
     display: none;
   }
-  .hand-card .card-art {
+  .table-topline {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  .hand-card .card-art:not(.art-engineer) {
     display: none;
   }
   .hand-card .card-title {
@@ -1744,7 +1733,6 @@ input::placeholder {
   }
   .played-card .card-art,
   .played-card .card-copy,
-  .played-card .card-bottom,
   .table-empty-icon {
     display: none;
   }

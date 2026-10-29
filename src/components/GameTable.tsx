@@ -5,7 +5,6 @@ import {
   FiAward,
   FiCheck,
   FiCode,
-  FiEye,
   FiLayers,
   FiLoader,
   FiTarget,
@@ -192,12 +191,6 @@ export function GameTable({
                       <>
                         <Card card={CARDS[event.cardId!]} compact />
                         <span className="play-number">{number}</span>
-                        {canReveal ? (
-                          <span className="reveal-badge">
-                            <FiEye />
-                            View hand
-                          </span>
-                        ) : null}
                       </>
                     )
                     return canReveal ? (
@@ -227,14 +220,6 @@ export function GameTable({
                     </p>
                   </div>
                 )}
-              </div>
-              <div className="table-bottomline">
-                <span>
-                  <FiLayers />
-                  {game.deckCount} in the stack
-                  <span className="table-separator">/</span>
-                  {game.discardCount} in the bin
-                </span>
               </div>
             </>
           )}

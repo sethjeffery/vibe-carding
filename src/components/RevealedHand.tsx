@@ -41,7 +41,6 @@ export function RevealedHand({
           <Card key={instance.instanceId} card={instance.card} />
         ))}
       </div>
-      <p>Click anywhere to dismiss · Reopen from Observability on the table</p>
     </dialog>
   )
 }

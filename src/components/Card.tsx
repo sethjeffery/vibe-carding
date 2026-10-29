@@ -1,7 +1,4 @@
 import {
-  FiActivity,
-  FiArrowUpRight,
-  FiCode,
   FiCpu,
   FiEye,
   FiGitBranch,
@@ -18,7 +15,7 @@ import type {
 } from '../../supabase/functions/_shared/engine'
 
 const icons = {
-  engineering: FiCode,
+  engineering: FiZap,
   model: FiCpu,
   mode: FiZap,
   utility: FiLayers,
@@ -35,6 +32,7 @@ export function Card({
   className?: string
   compact?: boolean
 }) {
+  const engineering = card.kind === 'engineering'
   const Icon =
     card.effect === 'observe-next'
       ? FiEye
@@ -43,8 +41,12 @@ export function Card({
         : card.effect === 'loop'
           ? FiRefreshCw
           : icons[card.kind]
-  const cost = Math.ceil((card.cost ?? 0) * (player?.costMultiplier ?? 1))
-  const earned = Math.floor((card.yield ?? 0) * (player?.yieldMultiplier ?? 1))
+  const cost = Math.ceil(card.cost * (player?.costMultiplier ?? 1))
+  const earned = Math.floor(card.yield * (player?.yieldMultiplier ?? 1))
+  const description =
+    engineering && (cost !== card.cost || earned !== card.yield)
+      ? `This turn: ${cost.toLocaleString()} credits → ${earned.toLocaleString()} tokens.`
+      : card.copy
   return (
     <div
       className={`game-card tone-${card.tone} ${compact ? 'card-compact' : ''} ${className}`}
@@ -53,58 +55,41 @@ export function Card({
         <span>{card.kind}</span>
         <Icon aria-hidden="true" />
       </div>
-      <div className={`card-art art-${card.effect}`} aria-hidden="true">
-        <div className="art-orbit" />
-        <div className="art-orbit orbit-two" />
-        <span className="art-code">
-          {card.kind === 'engineering'
-            ? '</>'
-            : card.kind === 'model'
+      {engineering ? (
+        <div className="card-art art-engineer">
+          <div className="engineering-value">
+            <strong>{card.cost.toLocaleString()}</strong>
+            <span>CREDITS → TOKENS</span>
+          </div>
+        </div>
+      ) : (
+        <div className={`card-art art-${card.effect}`} aria-hidden="true">
+          <div className="art-orbit" />
+          <div className="art-orbit orbit-two" />
+          <span className="art-code">
+            {card.kind === 'model'
               ? 'AI'
               : card.effect === 'yolo'
                 ? '!!'
                 : card.effect === 'ralph'
                   ? ':)'
                   : ''}
-        </span>
-        {card.kind !== 'engineering' &&
-        card.kind !== 'model' &&
-        card.effect !== 'yolo' &&
-        card.effect !== 'ralph' ? (
-          <Icon className="art-icon" />
-        ) : null}
-        <span className="art-corner corner-one">
-          <FiTerminal />
-        </span>
-        <span className="art-corner corner-two">
-          <FiGitBranch />
-        </span>
-      </div>
+          </span>
+          {card.kind !== 'model' &&
+          card.effect !== 'yolo' &&
+          card.effect !== 'ralph' ? (
+            <Icon className="art-icon" />
+          ) : null}
+          <span className="art-corner corner-one">
+            <FiTerminal />
+          </span>
+          <span className="art-corner corner-two">
+            <FiGitBranch />
+          </span>
+        </div>
+      )}
       <div className="card-title">{card.name}</div>
-      <p className="card-copy">{card.copy}</p>
-      <div className="card-bottom">
-        {card.kind === 'engineering' ? (
-          <>
-            <span>
-              <FiZap />
-              {cost}
-              <small>cr</small>
-            </span>
-            <FiArrowUpRight />
-            <span>
-              {earned}
-              <small>tk</small>
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="card-effect-label">
-              {card.kind === 'sabotage' ? 'NEXT TEAM' : 'THIS TURN'}
-            </span>
-            <FiActivity />
-          </>
-        )}
-      </div>
+      <p className="card-copy">{description}</p>
     </div>
   )
 }

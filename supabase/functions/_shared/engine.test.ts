@@ -17,6 +17,19 @@ function started() {
 }
 
 describe('game rules', () => {
+  it.each(Object.values(CARDS).filter((card) => card.kind === 'engineering'))(
+    'converts $name credits to tokens at 1:1 before modifiers',
+    (card) => {
+      const state = started()
+      const me = state.players[0]
+      me.credits = 1000
+      me.hand = [{ instanceId: 'task', definitionId: card.id }]
+      expect(card.yield).toBe(card.cost)
+      resolveAction(state, 'a', { type: 'play', cardInstanceId: 'task' })
+      expect(me.credits).toBe(1000 - card.cost)
+      expect(me.tokens).toBe(card.cost)
+    },
+  )
   it('keeps modifiers forward-only and enforces three actions', () => {
     const state = started()
     const me = state.players[0]
