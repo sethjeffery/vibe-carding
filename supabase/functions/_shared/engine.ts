@@ -40,6 +40,7 @@ export interface GameEvent {
   tone: CardDefinition['tone'] | 'neutral'
   cardId?: string
   playerId?: string
+  discarded?: boolean
   turn: number
 }
 export interface GameState {
@@ -97,6 +98,7 @@ function addEvent(
   tone: GameEvent['tone'] = 'neutral',
   cardId?: string,
   playerId?: string,
+  discarded = false,
 ) {
   state.events.unshift({
     id: state.nextEventNumber++,
@@ -104,6 +106,7 @@ function addEvent(
     tone,
     cardId,
     playerId,
+    discarded,
     turn: state.turn,
   })
 }
@@ -377,6 +380,7 @@ export function resolveAction(
       'neutral',
       card.id,
       player.id,
+      true,
     )
   state.revision++
   checkVictory(state)

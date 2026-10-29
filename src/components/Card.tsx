@@ -26,11 +26,13 @@ export function Card({
   player,
   className = '',
   compact = false,
+  discarded = false,
 }: {
   card: CardDefinition
   player?: PlayerView
   className?: string
   compact?: boolean
+  discarded?: boolean
 }) {
   const engineering = card.kind === 'engineering'
   const Icon =
@@ -43,13 +45,15 @@ export function Card({
           : icons[card.kind]
   const cost = Math.ceil(card.cost * (player?.costMultiplier ?? 1))
   const earned = Math.floor(card.yield * (player?.yieldMultiplier ?? 1))
+  const unavailable =
+    discarded || (engineering && player != null && cost > player.credits)
   const description =
     engineering && (cost !== card.cost || earned !== card.yield)
       ? `This turn: ${cost.toLocaleString()} credits → ${earned.toLocaleString()} tokens.`
       : card.copy
   return (
     <div
-      className={`game-card tone-${card.tone} ${compact ? 'card-compact' : ''} ${className}`}
+      className={`game-card tone-${card.tone} ${compact ? 'card-compact' : ''} ${unavailable ? 'card-unavailable' : ''} ${className}`}
     >
       <div className="card-top">
         <span>{card.kind}</span>

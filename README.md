@@ -8,6 +8,8 @@ Run `pnpm dev` and open [the local game](http://127.0.0.1:4173/). Create a game,
 
 Click a card to play it immediately. Clicking a card with no legal effect discards it, using an action. End your turn to keep unplayed cards and refill to seven. The in-game README explains modifiers, YOLO, Ralph, and sabotage.
 
+The play area shows the full current turn and outlined spaces for the active player's remaining normal actions. End Turn sits on its right. Your credit meter is beside the bottom-docked hand. Discarded cards retain their grey, diagonal strike on every player's screen, and played status cards stay visible until the turn ends. Long turns scroll horizontally.
+
 Your anonymous session is saved in this browser. Refreshing or returning to the same invite restores your seat. Clearing browser storage removes that identity; there is deliberately no account recovery or public matchmaking in v0.1.
 
 ## Development

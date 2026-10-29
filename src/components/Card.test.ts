@@ -36,3 +36,22 @@ it('removes footers from every card type', () => {
     expect(html).toContain(card.copy)
   }
 })
+
+it('marks a discarded engineering card unavailable without needing the player’s balance', () => {
+  const html = renderToStaticMarkup(
+    createElement(Card, { card: CARDS.backend, discarded: true }),
+  )
+  expect(html).toContain('card-unavailable')
+})
+
+it('uses the modified cost to grey out an unaffordable hand card', () => {
+  const player = projectGame(createGame('a', 'Alpha', 1), 'a').players[0]
+  player.costMultiplier = 2
+  expect(
+    renderToStaticMarkup(createElement(Card, { card: CARDS.refactor, player })),
+  ).toContain('card-unavailable')
+  player.credits = 400
+  expect(
+    renderToStaticMarkup(createElement(Card, { card: CARDS.refactor, player })),
+  ).not.toContain('card-unavailable')
+})

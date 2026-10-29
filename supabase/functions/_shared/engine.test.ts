@@ -60,6 +60,8 @@ describe('game rules', () => {
     ).toThrow('must be played')
     resolveAction(state, 'a', { type: 'discard', cardInstanceId: 'expensive' })
     expect(me.hand).toHaveLength(1)
+    expect(state.events[0].discarded).toBe(true)
+    expect(projectGame(state, 'b').events[0].discarded).toBe(true)
   })
 
   it('makes YOLO engineering plays free but not mandatory', () => {

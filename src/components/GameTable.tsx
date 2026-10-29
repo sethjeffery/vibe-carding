@@ -4,14 +4,13 @@ import {
   FiArrowRight,
   FiAward,
   FiCheck,
-  FiCode,
   FiLayers,
   FiLoader,
-  FiTarget,
   FiZap,
 } from 'react-icons/fi'
 import {
   CARDS,
+  ECONOMY,
   canPlay,
   type GameAction,
   type PlayerView,
@@ -89,13 +88,11 @@ function PlayerTile({
 export function GameTable({
   room,
   busy,
-  connected,
   onAction,
   onHome,
 }: {
   room: GameResponse
   busy: boolean
-  connected: boolean
   onAction: (action: GameAction) => void
   onHome: () => void
 }) {
@@ -106,7 +103,10 @@ export function GameTable({
   )
   const winner = game.players.find((player) => player.id === game.winnerId)
   const isTurn = active?.id === me.id && game.status === 'playing'
-  const remaining = Math.max(0, me.actionLimit - me.actionsUsed)
+  const remaining = active
+    ? Math.max(0, active.actionLimit - active.actionsUsed)
+    : 0
+  const ownRemaining = Math.max(0, me.actionLimit - me.actionsUsed)
   const revealed = game.players.find(
     (player) => me.revealPlayerIds.includes(player.id) && player.hand !== null,
   )
@@ -120,9 +120,6 @@ export function GameTable({
   const turnPlays = game.events
     .filter((event) => event.cardId && event.turn === game.turn)
     .reverse()
-  const latestPlays = turnPlays.slice(-4)
-  if (revealed && observeEvent && !latestPlays.includes(observeEvent))
-    latestPlays.unshift(observeEvent)
 
   return (
     <main className="game-view">
@@ -138,27 +135,31 @@ export function GameTable({
         ))}
       </section>
       <div className="board-layout">
-        <section className="table-space">
+        <section
+          className={`table-space ${isTurn ? 'table-active' : 'table-waiting'}`}
+          aria-label="Play area"
+        >
           <div className="table-topline">
-            <span>
-              <span
-                className={`status-dot ${connected ? '' : 'status-amber'}`}
-              />
-              {connected ? 'LIVE TABLE' : 'RECONNECTING'}
-            </span>
-            <span className={`turn-announcement ${isTurn ? 'text-lime' : ''}`}>
+            <span className="turn-announcement">
               {winner
                 ? 'Sprint complete.'
                 : isTurn
                   ? 'Your move.'
                   : `${active?.name} is cooking.`}
             </span>
-            <span>
-              TURN {game.turn}
-              <span className="table-separator">/</span>
-              <FiTarget />
-              {format(game.victoryTarget)}
-            </span>
+            <div className="active-effects">
+              {active?.costMultiplier !== undefined &&
+              active.costMultiplier !== 1 ? (
+                <span>cost ×{active.costMultiplier}</span>
+              ) : null}
+              {active?.yieldMultiplier !== undefined &&
+              active.yieldMultiplier !== 1 ? (
+                <span>yield ×{active.yieldMultiplier}</span>
+              ) : null}
+              {active?.modelBlocked ? (
+                <span className="effect-danger">API OUTAGE</span>
+              ) : null}
+            </div>
           </div>
           {winner ? (
             <div className="victory-panel">
@@ -179,49 +180,69 @@ export function GameTable({
               </button>
             </div>
           ) : (
-            <>
-              <div className="played-cards" aria-label="Cards played this turn">
-                {latestPlays.length ? (
-                  latestPlays.map((event) => {
-                    const number = turnPlays.indexOf(event) + 1
-                    const canReveal = Boolean(
-                      revealed && event.id === observeEvent?.id,
-                    )
-                    const content = (
-                      <>
-                        <Card card={CARDS[event.cardId!]} compact />
-                        <span className="play-number">{number}</span>
-                      </>
-                    )
-                    return canReveal ? (
-                      <button
-                        className="played-card reveal-card"
-                        key={event.id}
-                        onClick={() => dismissReveal(null)}
-                        aria-label="View observed hand"
-                      >
-                        {content}
-                      </button>
-                    ) : (
-                      <div key={event.id} className="played-card">
-                        {content}
-                      </div>
-                    )
-                  })
-                ) : (
-                  <div className="table-empty">
-                    <div className="table-empty-icon">
-                      <FiCode />
+            <div className="play-surface">
+              <div
+                className="played-cards"
+                role="group"
+                aria-label={`Cards played this turn, ${remaining} normal actions remaining`}
+              >
+                {turnPlays.map((event, index) => {
+                  const card = CARDS[event.cardId!]
+                  const discarded =
+                    event.discarded ??
+                    event.text.endsWith(` binned ${card.name}.`)
+                  const canReveal =
+                    !discarded &&
+                    Boolean(revealed && event.id === observeEvent?.id)
+                  const content = (
+                    <>
+                      <Card card={card} compact discarded={discarded} />
+                      <span className="play-number">{index + 1}</span>
+                    </>
+                  )
+                  const className = `played-card action-space ${!discarded && (card.kind === 'mode' || card.kind === 'model') ? 'status-card' : ''}`
+                  return canReveal ? (
+                    <button
+                      className={`${className} reveal-card`}
+                      key={event.id}
+                      onClick={() => dismissReveal(null)}
+                      aria-label="View observed hand"
+                      data-card-id={card.id}
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <div
+                      key={event.id}
+                      className={className}
+                      data-card-id={card.id}
+                      aria-label={`${discarded ? 'Discarded' : 'Played'} ${card.name}`}
+                    >
+                      {content}
                     </div>
-                    <p>
-                      {isTurn
-                        ? 'Click a card to play.'
-                        : 'Planning your next questionable decision?'}
-                    </p>
-                  </div>
-                )}
+                  )
+                })}
+                {Array.from({ length: remaining }, (_, index) => (
+                  <div
+                    key={`space-${index}`}
+                    className="action-space empty-action-space"
+                    aria-hidden="true"
+                  />
+                ))}
               </div>
-            </>
+              <div className="play-controls">
+                <button
+                  className="button-primary end-turn"
+                  disabled={
+                    !isTurn || busy || (me.mustEmptyHand && me.handCount > 0)
+                  }
+                  onClick={() => onAction({ type: 'end-turn' })}
+                >
+                  {busy ? <FiLoader className="spin" /> : <FiCheck />}End turn
+                  <FiArrowRight />
+                </button>
+              </div>
+            </div>
           )}
         </section>
         <aside className="activity-panel">
@@ -248,56 +269,24 @@ export function GameTable({
         </aside>
       </div>
       <section className="hand-section" aria-label="Your hand">
-        <div className="hand-toolbar">
-          <div className="hand-title">
-            <h2>
-              Your hand<span>{me.handCount}</span>
-            </h2>
-            <span className="credit-bank">
-              <FiZap />
-              {format(me.credits)}
-              <small>credits</small>
-            </span>
-            <div className="active-effects">
-              {me.costMultiplier !== 1 ? (
-                <span>cost ×{me.costMultiplier}</span>
-              ) : null}
-              {me.yieldMultiplier !== 1 ? (
-                <span>yield ×{me.yieldMultiplier}</span>
-              ) : null}
-              {me.unlimitedEngineering ? <span>YOLO</span> : null}
-              {me.mustEmptyHand ? (
-                <span className="effect-danger">EMPTY YOUR HAND</span>
-              ) : null}
-              {me.modelBlocked ? (
-                <span className="effect-danger">API OUTAGE</span>
-              ) : null}
-            </div>
-          </div>
-          <div className="turn-controls">
+        <div
+          className="credits-meter"
+          role="meter"
+          aria-label="Available credits"
+          aria-valuemin={0}
+          aria-valuemax={ECONOMY.creditCap}
+          aria-valuenow={me.credits}
+        >
+          <div className="credits-track">
             <div
-              className="action-dots"
-              aria-label={`${remaining} of ${me.actionLimit} actions remaining`}
-            >
-              {Array.from({ length: me.actionLimit }, (_, index) => (
-                <span
-                  key={index}
-                  className={index < remaining ? 'available' : ''}
-                />
-              ))}
-              <span>{remaining} actions</span>
-            </div>
-            <button
-              className="button-primary end-turn"
-              disabled={
-                !isTurn || busy || (me.mustEmptyHand && me.handCount > 0)
-              }
-              onClick={() => onAction({ type: 'end-turn' })}
-            >
-              {busy ? <FiLoader className="spin" /> : <FiCheck />}End turn
-              <FiArrowRight />
-            </button>
+              className="credits-fill"
+              style={{
+                height: `${Math.max(0, Math.min(1, me.credits / ECONOMY.creditCap)) * 100}%`,
+              }}
+            />
           </div>
+          <strong>{format(me.credits)}</strong>
+          <span>credits</span>
         </div>
         <div className="hand-cards">
           {me.hand?.map((instance) => {
@@ -307,7 +296,7 @@ export function GameTable({
               me.unlimitedEngineering &&
               instance.card.kind === 'engineering'
             const allowed =
-              isTurn && !busy && (remaining > 0 || free || me.mustEmptyHand)
+              isTurn && !busy && (ownRemaining > 0 || free || me.mustEmptyHand)
             const action = playable ? 'Play' : 'Discard'
             return (
               <button

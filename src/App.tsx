@@ -385,7 +385,6 @@ function App() {
         <GameTable
           room={room}
           busy={busy}
-          connected={connected}
           onAction={(action) =>
             void send({
               op: 'action',

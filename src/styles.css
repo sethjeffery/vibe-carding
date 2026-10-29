@@ -816,7 +816,7 @@ input::placeholder {
 .in-game {
   --hand-card-height: clamp(220px, 32dvh, 260px);
   --hand-height: calc(
-    var(--hand-card-height) + 84px + env(safe-area-inset-bottom)
+    var(--hand-card-height) + 32px + env(safe-area-inset-bottom)
   );
   height: 100dvh;
   min-height: 0;
@@ -943,11 +943,22 @@ input::placeholder {
   position: relative;
   border: 1px solid #303531;
   border-radius: 10px;
-  background: radial-gradient(ellipse at center, #212b1d99, #151a15 80%);
+  background: #1d1f21;
+  transition:
+    background-color 0.25s,
+    border-color 0.25s;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+.table-active {
+  background: radial-gradient(ellipse at center, #293c20, #192615 85%);
+  border-color: #506d37;
+}
+.table-waiting {
+  background: #1d1f21;
+  border-color: #3b3e41;
 }
 .table-space::before {
   content: '';
@@ -960,39 +971,54 @@ input::placeholder {
     linear-gradient(90deg, #66894f33 1px, transparent 1px);
   background-size: 32px 32px;
 }
-.table-topline,
-.table-bottomline {
+.table-topline {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 14px;
-  font: 9px var(--font-mono);
-  color: #9cae8e;
+  justify-content: center;
+  gap: 12px;
+  min-height: 36px;
+  padding: 7px 14px;
   flex-shrink: 0;
 }
-.table-topline > span,
-.table-bottomline > span {
-  display: flex;
-  gap: 6px;
-  align-items: center;
+.turn-announcement {
+  font-size: 14px;
+  font-weight: 700;
+  color: #dde3d9;
 }
-.table-separator {
-  margin: 0 3px;
-  color: #647456;
-}
-.table-topline .turn-announcement {
-  font: 700 13px var(--font-sans);
-  color: #dfe8d5;
-}
-.table-topline .turn-announcement.text-lime {
+.table-active .turn-announcement {
   color: #d3fc53;
 }
-.table-bottomline {
-  padding: 7px 14px;
-  font-size: 9px;
-  justify-content: center;
+.play-surface {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.play-controls {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 10px 12px 14px 0;
+}
+.end-turn {
+  font-size: 12px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 5px;
+}
+.action-space {
+  flex: 0 0 clamp(110px, 10vw, 145px);
+  height: min(100%, 220px);
+  min-height: 0;
+  border-radius: 8px;
+}
+.empty-action-space {
+  border: 2px dashed #69756766;
+  background: #ffffff03;
+}
+.table-active .empty-action-space {
+  border-color: #a4c77177;
+  background: #d3fc5304;
 }
 .played-cards {
   display: flex;
@@ -1008,9 +1034,6 @@ input::placeholder {
 }
 .played-card {
   position: relative;
-  flex: 0 0 145px;
-  height: min(100%, 220px);
-  min-height: 0;
   animation: enter 0.25s ease both;
 }
 .played-card .game-card {
@@ -1061,43 +1084,6 @@ input::placeholder {
 }
 .reveal-card:hover {
   transform: translateY(-3px);
-}
-.reveal-badge {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  top: 32px;
-  display: flex;
-  justify-content: center;
-  gap: 5px;
-  align-items: center;
-  padding: 5px;
-  border-radius: 4px;
-  background: #1b2715;
-  color: #d3fc53;
-  font-size: 10px;
-  font-weight: 700;
-}
-.table-empty {
-  position: relative;
-  text-align: center;
-  color: #a0b48e;
-}
-.table-empty-icon {
-  width: 46px;
-  height: 46px;
-  border: 1px dashed #60744677;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  margin: 0 auto 12px;
-  transform: rotate(-8deg);
-  font-size: 25px;
-  color: #8ca96e;
-}
-.table-empty p {
-  font-size: 13px;
-  margin: 0;
 }
 .activity-panel {
   display: flex;
@@ -1175,48 +1161,57 @@ input::placeholder {
   width: 100%;
   max-width: 1700px;
   height: var(--hand-height);
-  padding: 12px 20px calc(10px + env(safe-area-inset-bottom));
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
   background: #111510f5;
   border-top: 1px solid #465538;
   box-shadow: 0 -10px 35px #0005;
 }
-.hand-toolbar {
+.credits-meter {
+  height: var(--hand-card-height);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  height: 36px;
-  margin-bottom: 8px;
+  gap: 4px;
+  padding: 0 0 1px;
 }
-.hand-title {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
+.credits-track {
+  position: relative;
+  flex: 1;
+  width: 22px;
+  min-height: 0;
+  margin-bottom: 6px;
+  border: 1px solid #526542;
+  border-radius: 5px;
+  background: repeating-linear-gradient(
+    to top,
+    #293124 0,
+    #293124 calc(20% - 1px),
+    #526542 20%
+  );
+  overflow: hidden;
 }
-.hand-title h2 {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
+.credits-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, #86b330, #d3fc53);
+  border-radius: 3px;
+  transition: height 0.45s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
-.hand-title h2 > span {
-  font: 10px var(--font-mono);
-  color: #b7caa1;
-}
-.credit-bank {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.credits-meter strong {
   color: #d3fc53;
-  font: 700 16px var(--font-mono);
-  white-space: nowrap;
+  font: 700 17px var(--font-mono);
+  line-height: 1.2;
 }
-.credit-bank small {
-  color: #aebca1;
-  font: 11px var(--font-sans);
+.credits-meter > span {
+  font-size: 11px;
+  font-weight: 600;
+  color: #acb99e;
 }
 .active-effects {
   display: flex;
@@ -1239,39 +1234,6 @@ input::placeholder {
   color: #ffbc8d;
   border-color: #ffad7244;
   background: #ffad7216;
-}
-.turn-controls {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  flex-shrink: 0;
-}
-.action-dots {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.action-dots > span:not(:last-child) {
-  width: 7px;
-  height: 7px;
-  border: 1px solid #4f5a41;
-  border-radius: 2px;
-}
-.action-dots > span.available {
-  background: #d3fc53;
-  border-color: #d3fc53;
-}
-.action-dots > span:last-child {
-  margin-left: 5px;
-  font: 10px var(--font-mono);
-  color: #b1c19f;
-  white-space: nowrap;
-}
-.end-turn {
-  font-size: 12px;
-  min-height: 34px;
-  padding: 0 13px;
-  border-radius: 5px;
 }
 .hand-cards {
   display: grid;
@@ -1306,13 +1268,29 @@ input::placeholder {
   opacity: 1;
   cursor: default;
 }
-.hand-card.unplayable:has(.art-engineer) .game-card {
-  filter: grayscale(1);
+.game-card.card-unavailable {
+  --card-color: #c6c8ca;
+  --card-dark: #535a60;
 }
-.hand-card.unplayable .engineering-value strong {
-  color: #646b70;
-  text-decoration: line-through;
-  text-decoration-thickness: 4px;
+.card-unavailable .engineering-value strong {
+  color: #737a80;
+}
+.engineering-value strong {
+  position: relative;
+  display: inline-block;
+}
+.card-unavailable .engineering-value strong::after {
+  content: '';
+  position: absolute;
+  left: -6%;
+  top: 50%;
+  width: 112%;
+  height: 0.17em;
+  box-sizing: content-box;
+  background: #454d54;
+  border: 0.04em solid var(--card-color);
+  transform: translateY(-50%) rotate(-18deg);
+  pointer-events: none;
 }
 .hand-card .card-title {
   font-size: 17px;
@@ -1408,12 +1386,6 @@ input::placeholder {
   height: 265px;
   aspect-ratio: auto;
 }
-.observability-dialog > p {
-  color: #adbe9c;
-  font-size: 12px;
-  text-align: center;
-  margin-top: 16px;
-}
 
 .error-toast {
   position: fixed;
@@ -1498,15 +1470,6 @@ input::placeholder {
 }
 .rules-special strong {
   color: #d4e8bc;
-}
-@media (min-width: 1550px) {
-  .table-space,
-  .activity-panel {
-    height: 375px;
-  }
-  .hand-card .game-card {
-    max-height: 300px;
-  }
 }
 @media (max-width: 1100px) {
   .home-view {
@@ -1662,56 +1625,43 @@ input::placeholder {
     display: none;
   }
   .table-topline {
+    padding: 6px 10px;
+    gap: 6px;
     flex-wrap: wrap;
-    font-size: 8px;
-    padding: 8px 10px;
   }
-  .table-topline .turn-announcement {
+  .turn-announcement {
+    font-size: 12px;
+  }
+  .play-controls {
+    padding-right: 8px;
+  }
+  .end-turn {
+    min-height: 36px;
+    padding: 0 8px;
     font-size: 11px;
+    gap: 5px;
   }
-  .table-topline > span:last-child {
+  .end-turn > svg {
     display: none;
   }
-  .table-empty p {
-    font-size: 11px;
+  .action-space {
+    flex-basis: 115px;
   }
   .hand-section {
     padding-left: 10px;
     padding-right: 10px;
-  }
-  .hand-title {
+    grid-template-columns: 44px minmax(0, 1fr);
     gap: 8px;
   }
-  .hand-title h2 {
-    font-size: 12px;
+  .credits-meter strong {
+    font-size: 14px;
   }
-  .credit-bank {
-    font-size: 13px;
-  }
-  .credit-bank small,
-  .action-dots > span:last-child {
-    display: none;
+  .credits-meter > span {
+    font-size: 10px;
   }
   .active-effects {
-    position: absolute;
-    top: -29px;
-    left: 10px;
-    max-width: calc(100% - 20px);
-  }
-  .active-effects > span {
-    background: #242b1d;
-  }
-  .turn-controls {
-    gap: 8px;
-  }
-  .end-turn {
-    min-height: 32px;
-    font-size: 11px;
-    padding: 0 9px;
-    gap: 6px;
-  }
-  .end-turn > svg:last-child {
-    display: none;
+    position: static;
+    max-width: 100%;
   }
   .victory-panel h1 {
     font-size: 30px;
@@ -1725,8 +1675,7 @@ input::placeholder {
     justify-content: center;
     padding: 4px 8px;
   }
-  .played-card .card-top,
-  .table-bottomline {
+  .played-card .card-top {
     display: none;
   }
   .table-topline {
@@ -1739,9 +1688,8 @@ input::placeholder {
   .hand-card .card-title {
     margin-top: auto;
   }
-  .played-card .card-art,
-  .played-card .card-copy,
-  .table-empty-icon {
+  .played-card .card-art:not(.art-engineer),
+  .played-card .card-copy {
     display: none;
   }
   .played-card .card-title {
@@ -1750,24 +1698,19 @@ input::placeholder {
     line-height: 1.1;
   }
   .played-card {
-    flex-basis: 155px;
-    min-height: 28px;
+    min-height: 70px;
+  }
+  .played-card .engineering-value {
+    gap: 3px;
+  }
+  .played-card .engineering-value strong {
+    font-size: clamp(24px, 62cqh, 70px);
+  }
+  .played-card .engineering-value > span {
+    font-size: 7px;
   }
   .reveal-card .game-card {
     padding-right: 24px;
-  }
-  .reveal-badge {
-    left: auto;
-    right: 4px;
-    top: 50%;
-    transform: translateY(-50%);
-    padding: 3px;
-    background: transparent;
-    color: #243315;
-    font-size: 0;
-  }
-  .reveal-badge svg {
-    font-size: 12px;
   }
   .winner-icon,
   .victory-panel p {
