@@ -56,7 +56,6 @@ export interface GameState {
   rng: number
   nextCardNumber: number
   nextEventNumber: number
-  turnDeadline: number | null
   events: GameEvent[]
 }
 export type GameAction =
@@ -126,7 +125,6 @@ export function createGame(
     rng: seed >>> 0,
     nextCardNumber: 1,
     nextEventNumber: 1,
-    turnDeadline: null,
     events: [],
   }
 }
@@ -162,12 +160,7 @@ export function joinGame(state: GameState, id: string, name: string) {
   return state
 }
 
-export function startGame(
-  state: GameState,
-  userId: string,
-  target = 10_000,
-  now = Date.now(),
-) {
+export function startGame(state: GameState, userId: string, target = 10_000) {
   if (userId !== state.hostId)
     throw new Error('Only the host can start the game.')
   if (state.status !== 'lobby')
@@ -187,7 +180,6 @@ export function startGame(
   state.status = 'playing'
   state.activePlayerId = state.players[0].id
   state.turn = 1
-  state.turnDeadline = now + 180_000
   state.revision++
   addEvent(state, `${state.players[0].name} owns the roadmap.`)
   return state
@@ -328,7 +320,6 @@ function checkVictory(state: GameState) {
   state.status = 'finished'
   state.winnerId = winner.id
   state.activePlayerId = undefined
-  state.turnDeadline = null
   addEvent(state, `${winner.name} shipped absolutely nothing. Victory!`, 'lime')
 }
 
@@ -336,7 +327,6 @@ export function resolveAction(
   state: GameState,
   userId: string,
   action: GameAction,
-  now = Date.now(),
 ) {
   if (state.status !== 'playing') throw new Error('The game is not active.')
   const player = state.players.find((item) => item.id === userId)
@@ -346,7 +336,7 @@ export function resolveAction(
   if (action.type === 'end-turn') {
     if (player.mustEmptyHand && player.hand.length)
       throw new Error('Ralph says the hand must go.')
-    endTurn(state, player, now)
+    endTurn(state, player)
     state.revision++
     return state
   }
@@ -393,7 +383,7 @@ export function resolveAction(
   return state
 }
 
-function endTurn(state: GameState, player: PlayerState, now: number) {
+function endTurn(state: GameState, player: PlayerState) {
   draw(state, player, 7 - player.hand.length)
   player.actionsUsed = 0
   player.actionLimit = 3
@@ -407,7 +397,6 @@ function endTurn(state: GameState, player: PlayerState, now: number) {
   const next = nextPlayer(state, player)
   state.activePlayerId = next.id
   state.turn++
-  state.turnDeadline = now + 180_000
   const pending = next.pending.splice(0)
   next.modelBlocked = pending.includes('outage')
   next.yieldMultiplier *=
@@ -450,7 +439,6 @@ export function projectGame(state: GameState, userId: string): GameView {
     turn: state.turn,
     revision: state.revision,
     victoryTarget: state.victoryTarget,
-    turnDeadline: state.turnDeadline,
     events: state.events.slice(0, 30),
     meId: userId,
     deckCount: state.drawPile.length,
@@ -467,33 +455,4 @@ export function projectGame(state: GameState, userId: string): GameView {
           : null,
     })),
   }
-}
-
-export function expireTurn(state: GameState, now: number) {
-  if (
-    state.status !== 'playing' ||
-    state.turnDeadline === null ||
-    now < state.turnDeadline
-  )
-    return false
-  const player = state.players.find((item) => item.id === state.activePlayerId)!
-  addEvent(state, `${player.name} timed out. The intern took over.`)
-  if (player.mustEmptyHand) {
-    for (const instance of [...player.hand]) {
-      const card = CARDS[instance.definitionId]
-      resolveAction(
-        state,
-        player.id,
-        {
-          type: canPlay(state, player, card) ? 'play' : 'discard',
-          cardInstanceId: instance.instanceId,
-        },
-        now,
-      )
-      if (state.winnerId || !player.hand.length) break
-    }
-  }
-  if (state.status === 'playing')
-    resolveAction(state, player.id, { type: 'end-turn' }, now)
-  return true
 }

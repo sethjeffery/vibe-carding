@@ -1,16 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   FiActivity,
   FiArrowRight,
   FiAward,
   FiCheck,
-  FiClock,
   FiCode,
   FiEye,
   FiLayers,
   FiLoader,
   FiTarget,
-  FiTrash2,
   FiZap,
 } from 'react-icons/fi'
 import {
@@ -21,23 +19,10 @@ import {
 } from '../../supabase/functions/_shared/engine'
 import type { GameResponse } from '../lib/api'
 import { Card } from './Card'
+import { RevealedHand } from './RevealedHand'
 
 function format(value: number) {
   return value.toLocaleString()
-}
-function Timer({ deadline }: { deadline: number | null }) {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [])
-  const seconds = Math.max(0, Math.ceil(((deadline ?? now) - now) / 1000))
-  return (
-    <span className={`turn-timer ${seconds < 30 ? 'timer-low' : ''}`}>
-      <FiClock />
-      {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}
-    </span>
-  )
 }
 function PlayerTile({
   player,
@@ -122,29 +107,23 @@ export function GameTable({
   )
   const winner = game.players.find((player) => player.id === game.winnerId)
   const isTurn = active?.id === me.id && game.status === 'playing'
-  const [selectedId, select] = useState<string | null>(null)
-  const selected = me.hand?.find(
-    (instance) => instance.instanceId === selectedId,
-  )
-  const latestPlays = game.events
-    .filter((event) => event.cardId && event.turn === game.turn)
-    .slice(0, 4)
-    .reverse()
-  const next = game.players[(me.seat + 1) % game.players.length]
   const remaining = Math.max(0, me.actionLimit - me.actionsUsed)
-
-  function legality(cardId: string) {
-    const card = CARDS[cardId]
-    const playable = canPlay(game, me, card)
-    const free =
-      playable && me.unlimitedEngineering && card.kind === 'engineering'
-    return {
-      playable,
-      allowed: isTurn && !busy && (remaining > 0 || free || me.mustEmptyHand),
-      free,
-    }
-  }
-  const selectedLegality = selected ? legality(selected.definitionId) : null
+  const revealed = game.players.find(
+    (player) => me.revealPlayerIds.includes(player.id) && player.hand !== null,
+  )
+  const observeEvent = game.events.find(
+    (event) =>
+      event.cardId === 'observe' &&
+      event.playerId === me.id &&
+      event.turn === game.turn,
+  )
+  const [dismissedReveal, dismissReveal] = useState<number | null>(null)
+  const turnPlays = game.events
+    .filter((event) => event.cardId && event.turn === game.turn)
+    .reverse()
+  const latestPlays = turnPlays.slice(-4)
+  if (revealed && observeEvent && !latestPlays.includes(observeEvent))
+    latestPlays.unshift(observeEvent)
 
   return (
     <main className="game-view">
@@ -168,8 +147,15 @@ export function GameTable({
               />
               {connected ? 'LIVE TABLE' : 'RECONNECTING'}
             </span>
+            <span className={`turn-announcement ${isTurn ? 'text-lime' : ''}`}>
+              {winner
+                ? 'Sprint complete.'
+                : isTurn
+                  ? 'Your move.'
+                  : `${active?.name} is cooking.`}
+            </span>
             <span>
-              TURN {String(game.turn).padStart(2, '0')}
+              TURN {game.turn}
               <span className="table-separator">/</span>
               <FiTarget />
               {format(game.victoryTarget)}
@@ -180,7 +166,6 @@ export function GameTable({
               <span className="winner-icon">
                 <FiAward />
               </span>
-              <span className="hero-tag">SPRINT COMPLETE</span>
               <h1>
                 {winner.id === me.id
                   ? 'You shipped it.'
@@ -196,36 +181,49 @@ export function GameTable({
             </div>
           ) : (
             <>
-              <div className="turn-announcement">
-                <span className={isTurn ? 'text-lime' : ''}>
-                  {isTurn ? 'Your move.' : `${active?.name} is cooking.`}
-                </span>
-                <Timer deadline={game.turnDeadline} />
-              </div>
               <div className="played-cards" aria-label="Cards played this turn">
                 {latestPlays.length ? (
-                  latestPlays.map((event, index) => (
-                    <div
-                      key={event.id}
-                      className="played-card"
-                      style={{
-                        transform: `rotate(${(index - (latestPlays.length - 1) / 2) * 7}deg)`,
-                      }}
-                    >
-                      <Card card={CARDS[event.cardId!]} compact />
-                      <span className="play-number">{index + 1}</span>
-                    </div>
-                  ))
+                  latestPlays.map((event) => {
+                    const number = turnPlays.indexOf(event) + 1
+                    const canReveal = Boolean(
+                      revealed && event.id === observeEvent?.id,
+                    )
+                    const content = (
+                      <>
+                        <Card card={CARDS[event.cardId!]} compact />
+                        <span className="play-number">{number}</span>
+                        {canReveal ? (
+                          <span className="reveal-badge">
+                            <FiEye />
+                            View hand
+                          </span>
+                        ) : null}
+                      </>
+                    )
+                    return canReveal ? (
+                      <button
+                        className="played-card reveal-card"
+                        key={event.id}
+                        onClick={() => dismissReveal(null)}
+                        aria-label="View observed hand"
+                      >
+                        {content}
+                      </button>
+                    ) : (
+                      <div key={event.id} className="played-card">
+                        {content}
+                      </div>
+                    )
+                  })
                 ) : (
                   <div className="table-empty">
                     <div className="table-empty-icon">
                       <FiCode />
                     </div>
-                    <span>THE ROADMAP IS YOURS</span>
                     <p>
                       {isTurn
-                        ? 'Select a card to make your first questionable decision.'
-                        : 'Take a breath. Pretend to review a pull request.'}
+                        ? 'Click a card to play.'
+                        : 'Planning your next questionable decision?'}
                     </p>
                   </div>
                 )}
@@ -236,9 +234,6 @@ export function GameTable({
                   {game.deckCount} in the stack
                   <span className="table-separator">/</span>
                   {game.discardCount} in the bin
-                </span>
-                <span>
-                  git status: <strong>chaotic</strong>
                 </span>
               </div>
             </>
@@ -261,18 +256,9 @@ export function GameTable({
                 key={event.id}
               >
                 <span className="event-marker" />
-                <div>
-                  <small>TURN {String(event.turn).padStart(2, '0')}</small>
-                  <p>{event.text}</p>
-                </div>
+                <p>{event.text}</p>
               </div>
             ))}
-          </div>
-          <div className="activity-footer">
-            <span className="status-dot" />
-            {game.status === 'finished'
-              ? 'BUILD SUCCEEDED. SOMEHOW.'
-              : 'NO INTERRUPTS. JUST CONSEQUENCES.'}
           </div>
         </aside>
       </div>
@@ -296,7 +282,7 @@ export function GameTable({
               ) : null}
               {me.unlimitedEngineering ? <span>YOLO</span> : null}
               {me.mustEmptyHand ? (
-                <span className="effect-danger">RALPH: EMPTY YOUR HAND</span>
+                <span className="effect-danger">EMPTY YOUR HAND</span>
               ) : null}
               {me.modelBlocked ? (
                 <span className="effect-danger">API OUTAGE</span>
@@ -321,10 +307,7 @@ export function GameTable({
               disabled={
                 !isTurn || busy || (me.mustEmptyHand && me.handCount > 0)
               }
-              onClick={() => {
-                select(null)
-                onAction({ type: 'end-turn' })
-              }}
+              onClick={() => onAction({ type: 'end-turn' })}
             >
               {busy ? <FiLoader className="spin" /> : <FiCheck />}End turn
               <FiArrowRight />
@@ -333,101 +316,49 @@ export function GameTable({
         </div>
         <div className="hand-cards">
           {me.hand?.map((instance) => {
-            const { playable, allowed, free } = legality(instance.definitionId)
+            const playable = canPlay(game, me, instance.card)
+            const free =
+              playable &&
+              me.unlimitedEngineering &&
+              instance.card.kind === 'engineering'
+            const allowed =
+              isTurn && !busy && (remaining > 0 || free || me.mustEmptyHand)
+            const action = playable ? 'Play' : 'Discard'
             return (
               <button
                 key={instance.instanceId}
-                className={`hand-card ${selectedId === instance.instanceId ? 'selected' : ''} ${!playable ? 'unplayable' : ''}`}
+                className={`hand-card ${!playable ? 'unplayable' : ''}`}
+                disabled={!allowed}
                 onClick={() =>
-                  select(
-                    selectedId === instance.instanceId
-                      ? null
-                      : instance.instanceId,
-                  )
+                  onAction({
+                    type: playable ? 'play' : 'discard',
+                    cardInstanceId: instance.instanceId,
+                  })
                 }
-                aria-pressed={selectedId === instance.instanceId}
-                aria-label={`${instance.card.name}${!playable ? ', discardable' : ''}${free ? ', bonus play' : ''}`}
+                aria-label={`${action} ${instance.card.name}${free ? ', bonus play' : ''}`}
+                title={
+                  !isTurn
+                    ? 'Waiting for your turn'
+                    : `${action} ${instance.card.name}${!playable ? ' — no legal effect' : ''}`
+                }
                 data-card-id={instance.instanceId}
               >
                 <Card card={instance.card} player={me} />
-                <span className="card-hover-label">
-                  {!isTurn
-                    ? 'INSPECT'
-                    : !playable
-                      ? 'DISCARDABLE'
-                      : free
-                        ? 'BONUS PLAY'
-                        : allowed
-                          ? 'SELECT CARD'
-                          : 'NO ACTIONS'}
-                </span>
+                {!playable || free ? (
+                  <span className="card-badge">
+                    {!playable ? 'Discard' : 'Bonus play'}
+                  </span>
+                ) : null}
               </button>
             )
           })}
         </div>
-        {selected && selectedLegality ? (
-          <div className="card-action-bar">
-            <div>
-              <strong>{selected.card.name}</strong>
-              <span>
-                {!isTurn
-                  ? 'Waiting for your turn'
-                  : !selectedLegality.playable
-                    ? 'No legal effect — spend an action to discard'
-                    : selectedLegality.free
-                      ? 'Engineering bonus · no action used'
-                      : 'Uses 1 action'}
-                {selected.card.kind === 'sabotage'
-                  ? ` · Target: ${next.name}`
-                  : ''}
-              </span>
-            </div>
-            <button
-              className={
-                selectedLegality.playable
-                  ? 'button-primary'
-                  : 'button-secondary'
-              }
-              disabled={!selectedLegality.allowed}
-              onClick={() => {
-                onAction({
-                  type: selectedLegality.playable ? 'play' : 'discard',
-                  cardInstanceId: selected.instanceId,
-                })
-                select(null)
-              }}
-            >
-              {selectedLegality.playable ? <FiZap /> : <FiTrash2 />}
-              {selectedLegality.playable ? 'Play card' : 'Discard card'}
-              <FiArrowRight />
-            </button>
-          </div>
-        ) : (
-          <p className="hand-hint">
-            {me.mustEmptyHand && me.handCount
-              ? 'Ralph is driving. Resolve every remaining card.'
-              : isTurn
-                ? remaining
-                  ? 'Select a card. Order matters. Consequences vary.'
-                  : 'Out of actions. End your turn to refill your hand.'
-                : game.status === 'finished'
-                  ? 'The sprint is over. The backlog is forever.'
-                  : 'Plan your next move while your rival burns the budget.'}
-          </p>
-        )}
       </section>
-      {me.revealPlayerIds.length ? (
-        <section className="revealed-section">
-          <h2>
-            <FiEye />
-            Observability: {next.name}’s hand
-          </h2>
-          <div>
-            {next.hand?.map((instance) => (
-              <Card key={instance.instanceId} card={instance.card} compact />
-            ))}
-          </div>
-        </section>
+      {revealed && observeEvent && dismissedReveal !== observeEvent.id ? (
+        <RevealedHand
+          player={revealed}
+          onClose={() => dismissReveal(observeEvent.id)}
+        />
       ) : null}
     </main>
   )

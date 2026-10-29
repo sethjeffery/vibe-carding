@@ -76,9 +76,8 @@ export function Rules({ onClose }: { onClose: () => void }) {
       </div>
       <p className="text-xs leading-relaxed text-zinc-500">
         Prototype economy: 300 starting credits, +100 at the start of each later
-        turn, 1,000 cap. Modifiers expire at turn end. Turns last 3 minutes. On
-        timeout, Ralph resolves the remaining hand from left to right; other
-        turns end automatically. Refreshing restores your seat in this browser.
+        turn, 1,000 cap. Modifiers expire at turn end. Take your time — turns
+        have no countdown. Refreshing restores your seat in this browser.
       </p>
       <button className="button-primary mt-6 w-full" onClick={onClose}>
         Got it. Ship it.

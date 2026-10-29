@@ -6,7 +6,7 @@ A desktop multiplayer card game about spending AI credits and accumulating techn
 
 Run `pnpm dev` and open [the local game](http://127.0.0.1:4173/). Create a game, copy its invite link, and have 1–3 friends join. The host chooses a 3,000, 5,000, or 10,000 token target and starts. Separate players need separate browsers, browser profiles, or private windows. Two tabs in one profile share the same player session.
 
-Choose cards in order, then press **Play card**. Only cards with no legal effect may be discarded, using an action. End your turn to keep unplayed cards and refill to seven. The in-game README explains modifiers, YOLO, Ralph, sabotage, and timeouts.
+Click a card to play it immediately. Clicking a card with no legal effect discards it, using an action. End your turn to keep unplayed cards and refill to seven. The in-game README explains modifiers, YOLO, Ralph, and sabotage.
 
 Your anonymous session is saved in this browser. Refreshing or returning to the same invite restores your seat. Clearing browser storage removes that identity; there is deliberately no account recovery or public matchmaking in v0.1.
 
@@ -34,7 +34,7 @@ The network test covers concurrent joins, hidden hands, turn ownership, concurre
 ## Code map
 
 - `supabase/functions/_shared/cards.ts`: typed card catalogue and the 60-card supply.
-- `supabase/functions/_shared/engine.ts`: deterministic rules, legality, scoring, draws, turn expiry, and private views. Mutates a server-owned state; callers must persist it only after successful resolution.
+- `supabase/functions/_shared/engine.ts`: deterministic rules, legality, scoring, draws, and private views. Mutates a server-owned state; callers must persist it only after successful resolution.
 - `supabase/functions/_shared/request.ts`: validates untrusted API input.
 - `supabase/functions/game/index.ts`: authenticates requests and commits authoritative transitions.
 - `supabase/migrations/`: tables, RLS, and the transactional compare-and-swap commit function.
@@ -66,8 +66,8 @@ The source specification's locked rules are implemented. Provisional choices rem
 - Three actions, seven-card hands, multiplicative modifiers, cost rounded up, yield rounded down.
 - Sabotage targets the next seat. Direction halves tokens with downward rounding; Webinar steals up to 200; Swap Teams exchanges scores. Freeze prevents one refill, Outage blocks models for one turn, and Caveman halves task yield for one turn. Repeated Caveman effects stack.
 - YOLO frees engineering plays, but discards still spend actions. Ralph overrides the action limit and permits legal discards; New Squad can clear Ralph's remaining hand.
-- Observability reveals the next team's hand only to its caster until that turn ends.
-- Turn deadline is three minutes. On expiry, Ralph resolves cards left to right; other turns end. The server enforces expiry on requests, and connected clients refresh at least every 15 seconds. When everyone is offline, the next request resolves the expired turn.
+- Observability reveals the next team's hand only to its caster until that turn ends. Playing it opens a dismissible modal; clicking your Observability card on the table reopens it.
+- Turns have no timer and never end automatically. Existing matches ignore their old stored deadlines.
 - A card that changes no state, such as a 300-credit reset at exactly 300 credits, is discardable. Affordable tasks remain playable regardless of strategic value.
 
 Authoritative state, deck order, RNG state, and unrevealed hands are never sent to clients or Realtime. A transaction commits each state revision, action receipt, and per-player notification together. Duplicate action IDs cannot spend a card twice.

@@ -29,6 +29,14 @@ export interface CardDefinition {
   tone: 'cyan' | 'pink' | 'lime' | 'orange' | 'violet'
 }
 
+const CARD_TONES: Record<CardKind, CardDefinition['tone']> = {
+  engineering: 'cyan',
+  model: 'violet',
+  mode: 'orange',
+  utility: 'lime',
+  sabotage: 'pink',
+}
+
 const definitions: Array<
   [
     id: string,
@@ -38,7 +46,6 @@ const definitions: Array<
     cost: number,
     yieldAmount: number,
     copy: string,
-    tone: CardDefinition['tone'],
   ]
 > = [
   [
@@ -49,7 +56,6 @@ const definitions: Array<
     50,
     50,
     'Closed as “works on my machine”.',
-    'cyan',
   ],
   [
     'div',
@@ -59,7 +65,6 @@ const definitions: Array<
     80,
     100,
     'Only took six prompts.',
-    'pink',
   ],
   [
     'dark',
@@ -69,7 +74,6 @@ const definitions: Array<
     120,
     160,
     'Roadmap complete.',
-    'violet',
   ],
   [
     'refactor',
@@ -79,18 +83,8 @@ const definitions: Array<
     200,
     200,
     'Same bugs, better folders.',
-    'lime',
   ],
-  [
-    'api',
-    'Ship an API',
-    'engineering',
-    'engineer',
-    300,
-    400,
-    'REST-ish.',
-    'orange',
-  ],
+  ['api', 'Ship an API', 'engineering', 'engineer', 300, 400, 'REST-ish.'],
   [
     'backend',
     'Rewrite Backend',
@@ -99,7 +93,6 @@ const definitions: Array<
     500,
     500,
     'The old one had context.',
-    'pink',
   ],
   [
     'mvp',
@@ -109,39 +102,11 @@ const definitions: Array<
     650,
     950,
     'Production is the test suite.',
-    'lime',
   ],
-  [
-    'sonnet',
-    'Sonnet',
-    'model',
-    'sonnet',
-    0,
-    0,
-    'Next tasks yield ×1.5.',
-    'cyan',
-  ],
-  ['opus', 'Opus', 'model', 'opus', 0, 0, 'Next tasks yield ×3.', 'violet'],
-  [
-    'max',
-    'MAX Mode',
-    'mode',
-    'max',
-    0,
-    0,
-    'Next tasks cost ×2 and yield ×2.',
-    'orange',
-  ],
-  [
-    'cache',
-    'Context Caching',
-    'model',
-    'cache',
-    0,
-    0,
-    'Next tasks cost ×0.5.',
-    'lime',
-  ],
+  ['sonnet', 'Sonnet', 'model', 'sonnet', 0, 0, 'Next tasks yield ×1.5.'],
+  ['opus', 'Opus', 'model', 'opus', 0, 0, 'Next tasks yield ×3.'],
+  ['max', 'MAX Mode', 'mode', 'max', 0, 0, 'Next tasks cost ×2 and yield ×2.'],
+  ['cache', 'Context Caching', 'model', 'cache', 0, 0, 'Next tasks cost ×0.5.'],
   [
     'yolo',
     'YOLO Mode',
@@ -150,7 +115,6 @@ const definitions: Array<
     0,
     0,
     'Engineering cards stop using actions.',
-    'pink',
   ],
   [
     'ralph',
@@ -160,7 +124,6 @@ const definitions: Array<
     0,
     0,
     'Empty your hand. No take-backs.',
-    'orange',
   ],
   [
     'squad',
@@ -170,18 +133,8 @@ const definitions: Array<
     0,
     0,
     'Bin the remaining hand.',
-    'cyan',
   ],
-  [
-    'loop',
-    '/loop',
-    'utility',
-    'loop',
-    0,
-    0,
-    'Add two normal actions.',
-    'violet',
-  ],
+  ['loop', '/loop', 'utility', 'loop', 0, 0, 'Add two normal actions.'],
   [
     'reset',
     'Credit Reset',
@@ -190,7 +143,6 @@ const definitions: Array<
     0,
     0,
     'Return to 300 credits.',
-    'lime',
   ],
   [
     'direction',
@@ -200,7 +152,6 @@ const definitions: Array<
     0,
     0,
     'Halve the next team’s tokens.',
-    'pink',
   ],
   [
     'webinar',
@@ -210,7 +161,6 @@ const definitions: Array<
     0,
     0,
     'Steal up to 200 tokens.',
-    'orange',
   ],
   [
     'swap',
@@ -220,7 +170,6 @@ const definitions: Array<
     0,
     0,
     'Swap tokens with the next team.',
-    'violet',
   ],
   [
     'freeze',
@@ -230,7 +179,6 @@ const definitions: Array<
     0,
     0,
     'No refill next turn.',
-    'cyan',
   ],
   [
     'outage',
@@ -240,7 +188,6 @@ const definitions: Array<
     0,
     0,
     'No model cards next turn.',
-    'pink',
   ],
   [
     'caveman',
@@ -250,7 +197,6 @@ const definitions: Array<
     0,
     0,
     'Next turn’s task yield ×0.5.',
-    'orange',
   ],
   [
     'observe',
@@ -260,14 +206,22 @@ const definitions: Array<
     0,
     0,
     'Reveal the next team’s hand.',
-    'lime',
   ],
 ]
 
 export const CARDS: Record<string, CardDefinition> = Object.fromEntries(
-  definitions.map(([id, name, kind, effect, cost, yieldAmount, copy, tone]) => [
+  definitions.map(([id, name, kind, effect, cost, yieldAmount, copy]) => [
     id,
-    { id, name, kind, effect, cost, yield: yieldAmount, copy, tone },
+    {
+      id,
+      name,
+      kind,
+      effect,
+      cost,
+      yield: yieldAmount,
+      copy,
+      tone: CARD_TONES[kind],
+    },
   ]),
 )
 

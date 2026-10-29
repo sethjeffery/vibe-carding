@@ -75,13 +75,13 @@ it('finishes 2,000 seeded matches without negative balances, duplicate cards or 
     const playerCount = seed % 2 ? 2 : 4
     for (let seat = 1; seat < playerCount; seat++)
       joinGame(state, `p${seat}`, `Team ${seat}`)
-    startGame(state, 'p0', 3000, 0)
+    startGame(state, 'p0', 3000)
     for (
       let action = 0;
       action < 2500 && state.status === 'playing';
       action++
     ) {
-      resolveAction(state, state.activePlayerId!, choose(state), 0)
+      resolveAction(state, state.activePlayerId!, choose(state))
       for (const player of state.players) {
         if (player.credits < 0 || player.tokens < 0 || player.hand.length > 7)
           throw new Error(`Invalid economy, seed ${seed}`)

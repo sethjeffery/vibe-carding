@@ -1,7 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 import {
   createGame,
-  expireTurn,
   joinGame,
   projectGame,
   resolveAction,
@@ -118,28 +117,6 @@ Deno.serve(async (request) => {
             gameId: id,
             game: projectGame(state, user.id),
           })
-      }
-      const expired = isMember && expireTurn(state, Date.now())
-      if (expired) {
-        const { data, error: timeoutError } = await admin.rpc('commit_game', {
-          p_game_id: id,
-          p_code: code,
-          p_state: state,
-          p_expected: revision,
-          p_action_id: crypto.randomUUID(),
-          p_actor: user.id,
-        })
-        if (timeoutError) throw timeoutError
-        if (!data)
-          return response(
-            { error: 'The game changed. Syncing…', stale: true },
-            409,
-          )
-        if (body.op !== 'state')
-          return response(
-            { error: 'The turn expired. Syncing…', stale: true },
-            409,
-          )
       }
       if (body.op === 'state')
         return response({ code, gameId: id, game: projectGame(state, user.id) })

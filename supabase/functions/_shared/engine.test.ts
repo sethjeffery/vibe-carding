@@ -3,7 +3,6 @@ import {
   CARDS,
   canPlay,
   createGame,
-  expireTurn,
   joinGame,
   projectGame,
   resolveAction,
@@ -224,19 +223,34 @@ describe('game rules', () => {
     expect(projectGame(state, 'a').players[1].hand).toBeNull()
   })
 
-  it('resolves a Ralph timeout in stable hand order and stops at victory', () => {
+  it('allows a player to resume a legacy timed turn without losing cards', () => {
     const state = started()
+    Object.assign(state, { turnDeadline: 1 })
     const me = state.players[0]
     me.mustEmptyHand = true
-    me.hand = ['opus', 'bug', 'mvp'].map((id) => ({
-      instanceId: id,
-      definitionId: id,
-    }))
-    expect(expireTurn(state, state.turnDeadline! - 1)).toBe(false)
-    expect(expireTurn(state, state.turnDeadline! + 1)).toBe(true)
-    expect(me.tokens).toBe(150)
-    expect(state.activePlayerId).toBe('b')
-    expect(me.hand).toHaveLength(7)
+    me.hand = [{ instanceId: 'bug', definitionId: 'bug' }]
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'bug' })
+    expect(state.activePlayerId).toBe('a')
+    expect(me.tokens).toBe(50)
+    expect(projectGame(state, 'a')).not.toHaveProperty('turnDeadline')
+  })
+
+  it('uses one colour for every card in a type', () => {
+    for (const kind of [
+      'engineering',
+      'model',
+      'mode',
+      'utility',
+      'sabotage',
+    ]) {
+      expect(
+        new Set(
+          Object.values(CARDS)
+            .filter((card) => card.kind === kind)
+            .map((card) => card.tone),
+        ).size,
+      ).toBe(1)
+    }
   })
 
   it('rejects non-active players without mutating state', () => {
