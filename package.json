@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:vercel": "pnpm build && if [ \"$VERCEL_ENV\" = \"production\" ]; then : \"${SUPABASE_ACCESS_TOKEN:?Set SUPABASE_ACCESS_TOKEN in Vercel Production environment variables}\" && pnpm exec supabase functions deploy game --project-ref fgvcucvvjhrxgwwrrphs --use-api --no-verify-jwt; fi",
     "test": "vitest run",
     "test:network": "node --env-file=.env.local scripts/network-smoke.mjs",
     "lint": "eslint .",
