@@ -46,6 +46,10 @@ The network test covers concurrent joins, hidden hands, turn ownership, concurre
 
 ## Supabase and deployment
 
+Vercel uses `vercel.json` to build the frontend, then deploy the `game` Edge Function for production builds only. Add `SUPABASE_ACCESS_TOKEN` as a secret in the Vercel project's **Production** environment variables (a Supabase personal access token, never a `VITE_` variable). Preview builds skip function deployment. The CLI is pinned in dev dependencies and deploys through the API without Docker. Missing credentials or a failed function deployment fail the production build.
+
+The function goes live before Vercel publishes the frontend. Keep backend changes compatible with the currently live frontend; Vercel rollback does not roll back Supabase functions. Database migrations are not applied by this build.
+
 The configured project is **Vibe Carding**, ref `fgvcucvvjhrxgwwrrphs`, in London. Its schema, anonymous sign-in, Realtime publication, and Edge Function are already deployed. Its migration history matches the local migration.
 
 For a fresh project, set your frontend URL and publishable key, enable anonymous sign-in, and apply the migration:

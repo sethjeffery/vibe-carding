@@ -150,14 +150,14 @@ function App() {
               ZERO CODE REVIEWS
             </div>
             <h1>
-              BIG VIBES.
+              VIBE <span className="line-through-title">CODING</span>
               <br />
-              <span className="text-lime">BAD CODE.</span>
+              <span className="text-lime">CARDING.</span>
             </h1>
             <p className="hero-description">
-              Burn credits. Farm tokens.
+              Play your cards right.
               <br />
-              Throw your friends under the sprint.
+              First player to burn {target.toLocaleString()} tokens wins.
             </p>
             <form
               className="entry-form"

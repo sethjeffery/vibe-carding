@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm build && if [ \"$VERCEL_ENV\" = \"production\" ]; then : \"${SUPABASE_ACCESS_TOKEN:?Set SUPABASE_ACCESS_TOKEN in Vercel Production environment variables}\" && pnpm exec supabase functions deploy game --project-ref fgvcucvvjhrxgwwrrphs --use-api --no-verify-jwt; fi",
+  "outputDirectory": "dist"
+}
