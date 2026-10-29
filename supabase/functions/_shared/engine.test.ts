@@ -17,6 +17,22 @@ function started() {
 }
 
 describe('game rules', () => {
+  it('publishes resolved engineering economics to every player', () => {
+    const state = started()
+    const me = state.players[0]
+    me.costMultiplier = 0.5
+    me.yieldMultiplier = 3
+    me.hand = [{ instanceId: 'task', definitionId: 'refactor' }]
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'task' })
+    me.costMultiplier = 2
+    me.yieldMultiplier = 1
+    for (const id of ['a', 'b']) {
+      expect(projectGame(state, id).events[0].economics).toEqual({
+        cost: 100,
+        tokens: 600,
+      })
+    }
+  })
   it.each(Object.values(CARDS).filter((card) => card.kind === 'engineering'))(
     'converts $name credits to tokens at 1:1 before modifiers',
     (card) => {

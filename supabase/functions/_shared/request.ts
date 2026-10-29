@@ -43,7 +43,7 @@ export function parseRequest(raw: string): ClientRequest {
       !body.name.trim() ||
       body.name.trim().length > 20
     )
-      throw new Error('Choose a team name, up to 20 characters.')
+      throw new Error('Choose a player name, up to 20 characters.')
     name = body.name.trim()
   }
   if (op === 'create') return { op, requestId, name }

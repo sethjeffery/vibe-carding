@@ -170,16 +170,16 @@ function App() {
                 })
               }}
             >
-              <label className="field-label" htmlFor="team-name">
-                YOUR TEAM
+              <label className="field-label" htmlFor="player-name">
+                PLAYER NAME
               </label>
               <div className="name-field">
                 <FiCode aria-hidden="true" />
                 <input
-                  id="team-name"
+                  id="player-name"
                   value={name}
                   onChange={(event) => saveName(event.target.value)}
-                  placeholder="Definitely Not A Startup"
+                  placeholder="Vibe Coder CEO"
                   maxLength={20}
                   required
                   autoComplete="nickname"
@@ -278,9 +278,9 @@ function App() {
               LOBBY OPEN
             </span>
             <h1>
-              Assemble the
+              Gather the
               <br />
-              <span className="text-lime">dream team.</span>
+              <span className="text-lime">players.</span>
             </h1>
             <p>Or just invite whoever’s online.</p>
           </div>
@@ -373,7 +373,7 @@ function App() {
             <p className="lobby-note">
               {room.game.players.length < 2
                 ? 'Invite at least one rival to get started.'
-                : `${room.game.players.length} teams connected. Let’s make something worse.`}
+                : `${room.game.players.length} players connected. Let’s make something worse.`}
             </p>
           </section>
           <div className="lobby-connection">

@@ -67,9 +67,9 @@ The source specification's locked rules are implemented. Provisional choices rem
 - 300 starting credits, +100 on later turn starts, a 1,000-credit cap, and no extra refill on the first turn.
 - Three actions, seven-card hands, multiplicative modifiers, cost rounded up, yield rounded down.
 - Every engineering card has a 1:1 base credit cost and token yield. Its large printed number is the base amount; active modifiers are reflected in its description.
-- Sabotage targets the next seat. Direction halves tokens with downward rounding; Webinar steals up to 200; Swap Teams exchanges scores. Freeze prevents one refill, Outage blocks models for one turn, and Caveman halves task yield for one turn. Repeated Caveman effects stack.
+- Sabotage targets the next seat. Direction halves tokens with downward rounding; Webinar steals up to 200; Swap Players exchanges scores. Freeze prevents one refill, Outage blocks models for one turn, and Caveman halves task yield for one turn. Repeated Caveman effects stack.
 - YOLO frees engineering plays, but discards still spend actions. Ralph overrides the action limit and permits legal discards; New Squad can clear Ralph's remaining hand.
-- Observability reveals the next team's hand only to its caster until that turn ends. Playing it opens a dismissible modal; clicking your Observability card on the table reopens it.
+- Observability reveals the next player's hand only to its caster until that turn ends. Playing it opens a dismissible modal; clicking your Observability card on the table reopens it.
 - Turns have no timer and never end automatically. Existing matches ignore their old stored deadlines.
 - A card that changes no state, such as a 300-credit reset at exactly 300 credits, is discardable. Affordable tasks remain playable regardless of strategic value.
 

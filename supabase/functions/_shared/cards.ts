@@ -153,7 +153,7 @@ const definitions: Array<
     'sabotage',
     'halve-next',
     0,
-    'Halve the next team’s tokens.',
+    'Halve the next player’s tokens.',
   ],
   [
     'webinar',
@@ -161,15 +161,15 @@ const definitions: Array<
     'sabotage',
     'steal-next',
     0,
-    'Steal up to 200 tokens from the next team.',
+    'Steal up to 200 tokens from the next player.',
   ],
   [
     'swap',
-    'Swap Teams',
+    'Swap Players',
     'sabotage',
     'swap-next',
     0,
-    'Swap tokens with the next team.',
+    'Swap tokens with the next player.',
   ],
   [
     'freeze',
@@ -177,7 +177,7 @@ const definitions: Array<
     'sabotage',
     'freeze-next',
     0,
-    'Next team gets no credit refill next turn.',
+    'Next player gets no credit refill next turn.',
   ],
   [
     'outage',
@@ -185,7 +185,7 @@ const definitions: Array<
     'sabotage',
     'outage-next',
     0,
-    'Next team can’t use models next turn.',
+    'Next player can’t use models next turn.',
   ],
   [
     'caveman',
@@ -193,7 +193,7 @@ const definitions: Array<
     'sabotage',
     'caveman-next',
     0,
-    'Next team’s tasks yield ×0.5 next turn.',
+    'Next player’s tasks yield ×0.5 next turn.',
   ],
   [
     'observe',
@@ -201,7 +201,7 @@ const definitions: Array<
     'utility',
     'observe-next',
     0,
-    'Reveal the next team’s hand until your turn ends.',
+    'Reveal the next player’s hand until your turn ends.',
   ],
 ]
 

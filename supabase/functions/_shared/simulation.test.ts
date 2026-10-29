@@ -71,10 +71,10 @@ it('finishes 2,000 seeded matches without negative balances, duplicate cards or 
   let maxTurns = 0
   const wins = [0, 0, 0, 0]
   for (let seed = 1; seed <= 2000; seed++) {
-    const state = createGame('p0', 'Team 0', seed)
+    const state = createGame('p0', 'Player 0', seed)
     const playerCount = seed % 2 ? 2 : 4
     for (let seat = 1; seat < playerCount; seat++)
-      joinGame(state, `p${seat}`, `Team ${seat}`)
+      joinGame(state, `p${seat}`, `Player ${seat}`)
     startGame(state, 'p0', 3000)
     for (
       let action = 0;

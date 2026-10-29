@@ -4,6 +4,10 @@ import {
   FiArrowRight,
   FiAward,
   FiCheck,
+  FiCpu,
+  FiAlertTriangle,
+  FiRepeat,
+  FiFastForward,
   FiLayers,
   FiLoader,
   FiZap,
@@ -18,6 +22,7 @@ import {
 import type { GameResponse } from '../lib/api'
 import { Card } from './Card'
 import { RevealedHand } from './RevealedHand'
+import { TokenScore } from './TokenScore'
 
 function format(value: number) {
   return value.toLocaleString()
@@ -73,8 +78,10 @@ function PlayerTile({
         ) : null}
       </div>
       <div className="player-score">
-        <strong>{format(player.tokens)}</strong>
-        <span>/ {format(target)} tk</span>
+        <TokenScore tokens={player.tokens} />
+        <span>
+          / {format(target)} <FiCpu aria-label="tokens" />
+        </span>
       </div>
       <div className="score-track">
         <div
@@ -123,7 +130,7 @@ export function GameTable({
 
   return (
     <main className="game-view">
-      <section className="players-row" aria-label="Teams">
+      <section className="players-row" aria-label="Players">
         {game.players.map((player) => (
           <PlayerTile
             key={player.id}
@@ -150,14 +157,46 @@ export function GameTable({
             <div className="active-effects">
               {active?.costMultiplier !== undefined &&
               active.costMultiplier !== 1 ? (
-                <span>cost ×{active.costMultiplier}</span>
+                <span
+                  title={`Credit cost ×${active.costMultiplier}`}
+                  aria-label={`Credit cost ×${active.costMultiplier}`}
+                >
+                  <FiZap /> ×{active.costMultiplier}
+                </span>
               ) : null}
               {active?.yieldMultiplier !== undefined &&
               active.yieldMultiplier !== 1 ? (
-                <span>yield ×{active.yieldMultiplier}</span>
+                <span
+                  title={`Token yield ×${active.yieldMultiplier}`}
+                  aria-label={`Token yield ×${active.yieldMultiplier}`}
+                >
+                  <FiCpu /> ×{active.yieldMultiplier}
+                </span>
               ) : null}
               {active?.modelBlocked ? (
-                <span className="effect-danger">API OUTAGE</span>
+                <span
+                  className="effect-danger"
+                  title="API outage: models blocked"
+                  aria-label="API outage: models blocked"
+                >
+                  <FiAlertTriangle />
+                </span>
+              ) : null}
+              {active?.unlimitedEngineering ? (
+                <span
+                  title="YOLO: free engineering actions"
+                  aria-label="YOLO: free engineering actions"
+                >
+                  <FiFastForward />
+                </span>
+              ) : null}
+              {active?.mustEmptyHand ? (
+                <span
+                  title="Ralph: play your entire hand"
+                  aria-label="Ralph: play your entire hand"
+                >
+                  <FiRepeat />
+                </span>
               ) : null}
             </div>
           </div>
@@ -196,7 +235,12 @@ export function GameTable({
                     Boolean(revealed && event.id === observeEvent?.id)
                   const content = (
                     <>
-                      <Card card={card} compact discarded={discarded} />
+                      <Card
+                        card={card}
+                        compact
+                        discarded={discarded}
+                        economics={event.economics}
+                      />
                       <span className="play-number">{index + 1}</span>
                     </>
                   )

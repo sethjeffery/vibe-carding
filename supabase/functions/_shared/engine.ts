@@ -41,6 +41,7 @@ export interface GameEvent {
   cardId?: string
   playerId?: string
   discarded?: boolean
+  economics?: { cost: number; tokens: number }
   turn: number
 }
 export interface GameState {
@@ -99,6 +100,7 @@ function addEvent(
   cardId?: string,
   playerId?: string,
   discarded = false,
+  economics?: GameEvent['economics'],
 ) {
   state.events.unshift({
     id: state.nextEventNumber++,
@@ -107,6 +109,7 @@ function addEvent(
     cardId,
     playerId,
     discarded,
+    economics,
     turn: state.turn,
   })
 }
@@ -157,7 +160,7 @@ export function joinGame(state: GameState, id: string, name: string) {
     throw new Error('This game has already started.')
   if (state.players.some((player) => player.id === id)) return state
   if (state.players.length >= 4) throw new Error('This game is full.')
-  if (!name.trim()) throw new Error('Choose a team name.')
+  if (!name.trim()) throw new Error('Choose a player name.')
   state.players.push(newPlayer(id, name, state.players.length))
   state.revision++
   return state
@@ -248,6 +251,8 @@ function applyCard(
         card.tone,
         card.id,
         player.id,
+        false,
+        { cost, tokens: earned },
       )
       break
     }

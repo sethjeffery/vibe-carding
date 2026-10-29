@@ -27,12 +27,14 @@ export function Card({
   className = '',
   compact = false,
   discarded = false,
+  economics,
 }: {
   card: CardDefinition
   player?: PlayerView
   className?: string
   compact?: boolean
   discarded?: boolean
+  economics?: { cost: number; tokens: number }
 }) {
   const engineering = card.kind === 'engineering'
   const Icon =
@@ -43,14 +45,12 @@ export function Card({
         : card.effect === 'loop'
           ? FiRefreshCw
           : icons[card.kind]
-  const cost = Math.ceil(card.cost * (player?.costMultiplier ?? 1))
-  const earned = Math.floor(card.yield * (player?.yieldMultiplier ?? 1))
+  const cost =
+    economics?.cost ?? Math.ceil(card.cost * (player?.costMultiplier ?? 1))
+  const earned =
+    economics?.tokens ?? Math.floor(card.yield * (player?.yieldMultiplier ?? 1))
   const unavailable =
     discarded || (engineering && player != null && cost > player.credits)
-  const description =
-    engineering && (cost !== card.cost || earned !== card.yield)
-      ? `This turn: ${cost.toLocaleString()} credits → ${earned.toLocaleString()} tokens.`
-      : card.copy
   return (
     <div
       className={`game-card tone-${card.tone} ${compact ? 'card-compact' : ''} ${unavailable ? 'card-unavailable' : ''} ${className}`}
@@ -62,8 +62,10 @@ export function Card({
       {engineering ? (
         <div className="card-art art-engineer">
           <div className="engineering-value">
-            <strong>{card.cost.toLocaleString()}</strong>
-            <span>CREDITS → TOKENS</span>
+            <strong>{earned.toLocaleString()}</strong>
+            <span>
+              <FiCpu aria-hidden="true" /> TOKENS
+            </span>
           </div>
         </div>
       ) : (
@@ -92,8 +94,14 @@ export function Card({
           </span>
         </div>
       )}
+      {engineering ? (
+        <div className="engineering-cost">
+          <FiZap aria-hidden="true" />{' '}
+          <span>{cost.toLocaleString()} credits</span>
+        </div>
+      ) : null}
       <div className="card-title">{card.name}</div>
-      <p className="card-copy">{description}</p>
+      <p className="card-copy">{card.copy}</p>
     </div>
   )
 }

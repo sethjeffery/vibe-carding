@@ -67,10 +67,10 @@ export function Rules({ onClose }: { onClose: () => void }) {
           <strong>Ralph</strong> makes you empty your hand.
         </p>
         <p>
-          <strong>Sabotage</strong> always hits the next team in seat order.
+          <strong>Sabotage</strong> always hits the next player in seat order.
         </p>
         <p>
-          <strong>Observability</strong> reveals that team’s hand until your
+          <strong>Observability</strong> reveals that player’s hand until your
           turn ends.
         </p>
       </div>

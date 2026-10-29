@@ -45,6 +45,8 @@ it('keeps Ralph and YOLO visible after more than four cards, with identical rema
     expect(html.match(/class="played-card action-space/g)).toHaveLength(7)
     expect(html).toContain('data-card-id="yolo"')
     expect(html).toContain('data-card-id="ralph"')
+    expect(html).toContain('aria-label="YOLO: free engineering actions"')
+    expect(html).toContain('aria-label="Ralph: play your entire hand"')
     expect(html.match(/empty-action-space/g)).toHaveLength(2)
     expect(html).toContain('aria-valuenow=')
     expect(html).not.toContain('action-dots')

@@ -415,18 +415,34 @@ input::placeholder {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 3px;
   width: 100%;
 }
 .engineering-value strong {
   font:
-    900 clamp(40px, 72cqh, 110px)/0.85 'Barlow Condensed',
+    700 clamp(24px, 58cqh, 96px)/1 'Barlow Condensed',
     sans-serif;
-  letter-spacing: -2px;
+  letter-spacing: 0;
 }
 .engineering-value > span {
-  font: 700 9px var(--font-mono);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font: 700 9px/1.2 var(--font-mono);
   letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+.engineering-cost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 3px;
+  margin-bottom: 9px;
+  border-radius: 7px;
+  background: #102b3017;
+  font-size: 15px;
+  font-weight: 650;
   white-space: nowrap;
 }
 .art-code {
@@ -916,7 +932,10 @@ input::placeholder {
   font: 700 21px var(--font-mono);
   letter-spacing: -1px;
 }
-.player-score > span {
+.player-score > span:not(.token-score) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font: 8px var(--font-mono);
   color: #98a18e;
 }
@@ -1214,6 +1233,10 @@ input::placeholder {
   color: #acb99e;
 }
 .active-effects {
+  position: absolute;
+  left: 14px;
+  top: 7px;
+  max-width: 40%;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -1222,6 +1245,9 @@ input::placeholder {
   scrollbar-width: thin;
 }
 .active-effects > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font: 10px var(--font-mono);
   white-space: nowrap;
   background: #b3a0ff16;
@@ -1660,8 +1686,8 @@ input::placeholder {
     font-size: 10px;
   }
   .active-effects {
-    position: static;
-    max-width: 100%;
+    left: 10px;
+    max-width: 38%;
   }
   .victory-panel h1 {
     font-size: 30px;
@@ -1704,7 +1730,7 @@ input::placeholder {
     gap: 3px;
   }
   .played-card .engineering-value strong {
-    font-size: clamp(24px, 62cqh, 70px);
+    font-size: clamp(14px, 45cqh, 60px);
   }
   .played-card .engineering-value > span {
     font-size: 7px;
@@ -1720,7 +1746,72 @@ input::placeholder {
     font-size: 26px;
   }
 }
+.token-score {
+  position: relative;
+  color: inherit;
+}
+.token-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: #d3fc53;
+}
+.token-loss {
+  color: #ff7f98;
+}
+.token-burst i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: currentColor;
+  animation: token-particle 800ms ease-out both;
+}
+.token-burst b {
+  position: absolute;
+  right: 0;
+  top: -4px;
+  font: 700 13px var(--font-mono);
+  animation: token-delta 1s ease-out both;
+}
+@keyframes token-particle {
+  from {
+    transform: rotate(var(--angle)) translateX(0) rotate(0);
+    opacity: 1;
+  }
+  to {
+    transform: rotate(var(--angle)) translateX(var(--distance)) rotate(180deg);
+    opacity: 0;
+  }
+}
+@keyframes token-delta {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-32px);
+    opacity: 0;
+  }
+}
+@media (max-height: 650px) {
+  .played-card .art-engineer {
+    min-height: 25px;
+    margin: 2px 0;
+  }
+  .played-card .engineering-cost {
+    padding: 2px;
+    margin-bottom: 3px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
+  .token-burst {
+    display: none;
+  }
   *,
   *::before,
   *::after {
