@@ -1306,6 +1306,14 @@ input::placeholder {
   opacity: 1;
   cursor: default;
 }
+.hand-card.unplayable:has(.art-engineer) .game-card {
+  filter: grayscale(1);
+}
+.hand-card.unplayable .engineering-value strong {
+  color: #646b70;
+  text-decoration: line-through;
+  text-decoration-thickness: 4px;
+}
 .hand-card .card-title {
   font-size: 17px;
 }

@@ -329,7 +329,7 @@ export function GameTable({
                 data-card-id={instance.instanceId}
               >
                 <Card card={instance.card} player={me} />
-                {!playable || free ? (
+                {(!playable && instance.card.kind !== 'engineering') || free ? (
                   <span className="card-badge">
                     {!playable ? 'Discard' : 'Bonus play'}
                   </span>
