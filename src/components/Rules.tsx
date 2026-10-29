@@ -64,6 +64,18 @@ export function Rules({ onClose }: { onClose: () => void }) {
           <strong>YOLO</strong> gives you free engineering plays.
         </p>
         <p>
+          <strong>Credit Reset</strong> refills to 1,000 credits. PAYG adds 200,
+          300, or 500 credits, up to that cap.
+        </p>
+        <p>
+          <strong>Beta Tester</strong> makes subsequent tasks cost no credits
+          this turn.
+        </p>
+        <p>
+          <strong>Caveman</strong> halves subsequent engineering costs and token
+          yields this turn.
+        </p>
+        <p>
           <strong>Ralph</strong> makes you empty your hand.
         </p>
         <p>
@@ -75,9 +87,9 @@ export function Rules({ onClose }: { onClose: () => void }) {
         </p>
       </div>
       <p className="text-xs leading-relaxed text-zinc-500">
-        Prototype economy: 300 starting credits, +100 at the start of each later
-        turn, 1,000 cap. Modifiers expire at turn end. Take your time — turns
-        have no countdown. Refreshing restores your seat in this browser.
+        Prototype economy: 1,000 starting credits, +200 at the start of each
+        later turn, 1,000 cap. Modifiers expire at turn end. Take your time —
+        turns have no countdown. Refreshing restores your seat in this browser.
       </p>
       <button className="button-primary mt-6 w-full" onClick={onClose}>
         Got it. Ship it.

@@ -1,12 +1,10 @@
 import {
   FiCpu,
   FiEye,
-  FiGitBranch,
   FiLayers,
   FiRefreshCw,
   FiShuffle,
   FiTarget,
-  FiTerminal,
   FiZap,
 } from 'react-icons/fi'
 import type {
@@ -37,14 +35,13 @@ export function Card({
   economics?: { cost: number; tokens: number }
 }) {
   const engineering = card.kind === 'engineering'
-  const Icon =
-    card.effect === 'observe-next'
-      ? FiEye
-      : card.effect === 'swap-next'
-        ? FiShuffle
-        : card.effect === 'loop'
-          ? FiRefreshCw
-          : icons[card.kind]
+  const Icon = card.effect.observability
+    ? FiEye
+    : card.effect.swapTokens
+      ? FiShuffle
+      : card.effect.addActions
+        ? FiRefreshCw
+        : icons[card.kind]
   const cost =
     economics?.cost ?? Math.ceil(card.cost * (player?.costMultiplier ?? 1))
   const earned =
@@ -59,49 +56,36 @@ export function Card({
         <span>{card.kind}</span>
         <Icon aria-hidden="true" />
       </div>
+      <div className="card-title">{card.name}</div>
       {engineering ? (
         <div className="card-art art-engineer">
           <div className="engineering-value">
-            <strong>{earned.toLocaleString()}</strong>
+            <strong>+{earned.toLocaleString()}</strong>
             <span>
               <FiCpu aria-hidden="true" /> TOKENS
             </span>
           </div>
         </div>
       ) : (
-        <div className={`card-art art-${card.effect}`} aria-hidden="true">
+        <div className={`card-art art-${card.id}`} aria-hidden="true">
           <div className="art-orbit" />
           <div className="art-orbit orbit-two" />
-          <span className="art-code">
-            {card.kind === 'model'
-              ? 'AI'
-              : card.effect === 'yolo'
-                ? '!!'
-                : card.effect === 'ralph'
-                  ? ':)'
-                  : ''}
-          </span>
-          {card.kind !== 'model' &&
-          card.effect !== 'yolo' &&
-          card.effect !== 'ralph' ? (
-            <Icon className="art-icon" />
-          ) : null}
-          <span className="art-corner corner-one">
-            <FiTerminal />
-          </span>
-          <span className="art-corner corner-two">
-            <FiGitBranch />
-          </span>
+          <Icon className="art-icon" />
         </div>
       )}
       {engineering ? (
-        <div className="engineering-cost">
-          <FiZap aria-hidden="true" />{' '}
-          <span>{cost.toLocaleString()} credits</span>
+        <div className="card-footer">
+          <div className="engineering-cost">
+            <FiZap aria-hidden="true" />{' '}
+            <span>{cost.toLocaleString()} credits</span>
+          </div>
+          <p className="card-copy">{card.copy}</p>
         </div>
-      ) : null}
-      <div className="card-title">{card.name}</div>
-      <p className="card-copy">{card.copy}</p>
+      ) : (
+        <div className="card-footer">
+          <div className="engineering-cost">{card.copy}</div>
+        </div>
+      )}
     </div>
   )
 }

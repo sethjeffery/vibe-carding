@@ -4,10 +4,10 @@ import type { PlayerView } from '../../supabase/functions/_shared/engine'
 import { Card } from './Card'
 
 export function RevealedHand({
-  player,
+  players,
   onClose,
 }: {
-  player: PlayerView
+  players: PlayerView[]
   onClose: () => void
 }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -25,7 +25,9 @@ export function RevealedHand({
       <div className="observability-heading">
         <h2 id="observed-hand-title">
           <FiEye />
-          {player.name}’s hand
+          {players.length === 1
+            ? `${players[0].name}’s hand`
+            : 'Observed hands'}
         </h2>
         <button
           className="icon-button"
@@ -36,11 +38,16 @@ export function RevealedHand({
           <FiX />
         </button>
       </div>
-      <div className="observed-cards">
-        {player.hand?.map((instance) => (
-          <Card key={instance.instanceId} card={instance.card} />
-        ))}
-      </div>
+      {players.map((player) => (
+        <section key={player.id} aria-label={`${player.name}’s hand`}>
+          {players.length > 1 ? <h3>{player.name}</h3> : null}
+          <div className="observed-cards">
+            {player.hand?.map((instance) => (
+              <Card key={instance.instanceId} card={instance.card} />
+            ))}
+          </div>
+        </section>
+      ))}
     </dialog>
   )
 }

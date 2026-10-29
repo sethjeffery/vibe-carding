@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 import {
   CARDS,
+  ECONOMY,
   canPlay,
   createGame,
   joinGame,
@@ -26,20 +27,25 @@ function choose(state: GameState) {
           playable,
           rank: (card.yield ?? 0) * player.yieldMultiplier,
         }
-      const rank =
-        card.effect === 'credit-reset'
-          ? (300 - player.credits) * 2
-          : ['opus', 'sonnet', 'cache', 'max'].includes(card.effect) &&
+      const rank = card.effect.resetCredits
+        ? (ECONOMY.creditCap - player.credits) * 2
+        : card.effect.addCredits
+          ? Math.min(
+              card.effect.addCredits!,
+              ECONOMY.creditCap - player.credits,
+            ) * 2
+          : (card.effect.costMultiplier !== undefined ||
+                card.effect.yieldMultiplier !== undefined) &&
               remaining > 1 &&
               tasks.length
             ? 800
-            : card.effect === 'yolo' && tasks.length > 1
+            : card.effect.engineeringCardsSlotCost === 0 && tasks.length > 1
               ? 700
-              : card.effect === 'loop' && player.hand.length > 2
+              : card.effect.addActions && player.hand.length > 2
                 ? 650
                 : card.kind === 'sabotage'
                   ? 100
-                  : card.effect === 'new-squad' &&
+                  : card.effect.discardHand &&
                       !tasks.some((c) =>
                         canPlay(state, player, CARDS[c.definitionId]),
                       )

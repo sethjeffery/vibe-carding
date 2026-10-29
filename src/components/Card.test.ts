@@ -60,6 +60,7 @@ it('marks a discarded engineering card unavailable without needing the player’
 it('uses the modified cost to grey out an unaffordable hand card', () => {
   const player = projectGame(createGame('a', 'Alpha', 1), 'a').players[0]
   player.costMultiplier = 2
+  player.credits = 300
   expect(
     renderToStaticMarkup(createElement(Card, { card: CARDS.refactor, player })),
   ).toContain('card-unavailable')
@@ -67,4 +68,15 @@ it('uses the modified cost to grey out an unaffordable hand card', () => {
   expect(
     renderToStaticMarkup(createElement(Card, { card: CARDS.refactor, player })),
   ).not.toContain('card-unavailable')
+})
+
+it('shows Beta Tester tasks as free and available at zero credits', () => {
+  const player = projectGame(createGame('a', 'Alpha', 1), 'a').players[0]
+  player.costMultiplier = 0
+  player.credits = 0
+  const html = renderToStaticMarkup(
+    createElement(Card, { card: CARDS.mvp, player }),
+  )
+  expect(html).toContain('0 credits')
+  expect(html).not.toContain('card-unavailable')
 })

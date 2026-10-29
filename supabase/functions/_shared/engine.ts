@@ -1,4 +1,9 @@
-import { CARDS, DECK_COUNTS, type CardDefinition } from './cards.ts'
+import {
+  CARDS,
+  DECK_COUNTS,
+  type CardDefinition,
+  type CardEffect,
+} from './cards.ts'
 export {
   CARDS,
   type CardDefinition,
@@ -7,8 +12,8 @@ export {
 } from './cards.ts'
 
 export const ECONOMY = {
-  startingCredits: 300,
-  refillCredits: 100,
+  startingCredits: 1000,
+  refillCredits: 200,
   creditCap: 1000,
 }
 
@@ -16,7 +21,8 @@ export interface CardInstance {
   instanceId: string
   definitionId: string
 }
-export type PendingEffect = 'freeze' | 'outage' | 'caveman'
+// Keep queued effects from saved games readable.
+export type PendingEffect = CardEffect | 'freeze' | 'outage' | 'caveman'
 export interface PlayerState {
   id: string
   name: string
@@ -28,6 +34,7 @@ export interface PlayerState {
   actionLimit: number
   costMultiplier: number
   yieldMultiplier: number
+  engineeringCardsSlotCost?: number
   unlimitedEngineering: boolean
   mustEmptyHand: boolean
   modelBlocked: boolean
@@ -195,6 +202,27 @@ function nextPlayer<T>(state: { players: T[] }, current: { seat: number }) {
   return state.players[(current.seat + 1) % state.players.length]
 }
 
+function pendingEffect(effect: PendingEffect): CardEffect {
+  if (effect === 'freeze') return { disableCredits: true }
+  if (effect === 'outage') return { disableModels: true }
+  if (effect === 'caveman') return { yieldMultiplier: 0.5 }
+  return effect
+}
+
+function targets<T>(
+  state: { players: T[] },
+  player: { seat: number },
+  effect: CardEffect,
+): T[] {
+  if (effect.target === 'all')
+    return state.players.filter((_, seat) => seat !== player.seat)
+  return [
+    effect.target === 'next'
+      ? nextPlayer(state, player)
+      : state.players[player.seat],
+  ]
+}
+
 export function canPlay(
   state: { players: Array<Pick<PlayerState, 'tokens' | 'pending'>> },
   player: Pick<
@@ -205,26 +233,63 @@ export function canPlay(
     | 'modelBlocked'
     | 'tokens'
     | 'unlimitedEngineering'
+    | 'engineeringCardsSlotCost'
     | 'mustEmptyHand'
     | 'revealPlayerIds'
   > & { hand: unknown[] | null },
   card: CardDefinition,
 ) {
-  const rival = nextPlayer(state, player)
   if (card.kind === 'engineering')
-    return player.credits >= Math.ceil((card.cost ?? 0) * player.costMultiplier)
+    return player.credits >= Math.ceil(card.cost * player.costMultiplier)
   if (card.kind === 'model' && player.modelBlocked) return false
-  if (card.effect === 'halve-next') return rival.tokens > 0
-  if (card.effect === 'steal-next') return rival.tokens > 0
-  if (card.effect === 'swap-next') return rival.tokens !== player.tokens
-  if (card.effect === 'credit-reset') return player.credits !== 300
-  if (card.effect === 'yolo') return !player.unlimitedEngineering
-  if (card.effect === 'ralph') return !player.mustEmptyHand
-  if (card.effect === 'new-squad') return (player.hand?.length ?? 0) > 1
-  if (card.effect === 'freeze-next') return !rival.pending.includes('freeze')
-  if (card.effect === 'outage-next') return !rival.pending.includes('outage')
-  if (card.effect === 'observe-next') return !player.revealPlayerIds.length
-  return true
+  const effect = card.effect
+  const affected = targets(state, player, effect)
+  const external = effect.target === 'next' || effect.target === 'all'
+  return Boolean(
+    (effect.tokenMultiplier !== undefined &&
+      affected.some(
+        (p) => Math.floor(p.tokens * effect.tokenMultiplier!) !== p.tokens,
+      )) ||
+    (external && effect.stealTokens && affected.some((p) => p.tokens > 0)) ||
+    (effect.swapTokens && affected.some((p) => p.tokens !== player.tokens)) ||
+    ((effect.resetCredits || effect.addCredits) &&
+      (external || player.credits < ECONOMY.creditCap)) ||
+    (effect.costMultiplier !== undefined &&
+      effect.costMultiplier !== 1 &&
+      (effect.costMultiplier !== 0 ||
+        external ||
+        player.costMultiplier !== 0)) ||
+    (effect.yieldMultiplier !== undefined && effect.yieldMultiplier !== 1) ||
+    (effect.engineeringCardsSlotCost !== undefined &&
+      (external ||
+        effect.engineeringCardsSlotCost !==
+          (player.engineeringCardsSlotCost ??
+            (player.unlimitedEngineering ? 0 : 1)))) ||
+    (effect.playAllCards && (external || !player.mustEmptyHand)) ||
+    (effect.discardHand && (external || (player.hand?.length ?? 0) > 1)) ||
+    effect.addActions ||
+    (effect.disableModels &&
+      affected.some(
+        (p) => !p.pending.some((e) => pendingEffect(e).disableModels),
+      )) ||
+    (effect.disableCredits &&
+      affected.some(
+        (p) => !p.pending.some((e) => pendingEffect(e).disableCredits),
+      )) ||
+    (effect.observability && external && !player.revealPlayerIds.length),
+  )
+}
+
+function applyTurnEffect(player: PlayerState, effect: CardEffect) {
+  player.costMultiplier *= effect.costMultiplier ?? 1
+  player.yieldMultiplier *= effect.yieldMultiplier ?? 1
+  if (effect.engineeringCardsSlotCost !== undefined) {
+    player.engineeringCardsSlotCost = effect.engineeringCardsSlotCost
+    player.unlimitedEngineering = effect.engineeringCardsSlotCost === 0
+  }
+  if (effect.playAllCards) player.mustEmptyHand = true
+  if (effect.disableModels) player.modelBlocked = true
+  player.actionLimit += effect.addActions ?? 0
 }
 
 function applyCard(
@@ -232,92 +297,71 @@ function applyCard(
   player: PlayerState,
   card: CardDefinition,
 ) {
-  const rival = nextPlayer(state, player)
-  switch (card.effect) {
-    case 'engineer': {
-      const cost = Math.max(
-        0,
-        Math.ceil((card.cost ?? 0) * player.costMultiplier),
-      )
-      const earned = Math.max(
-        0,
-        Math.floor((card.yield ?? 0) * player.yieldMultiplier),
-      )
-      player.credits -= cost
-      player.tokens += earned
-      addEvent(
-        state,
-        `${player.name} shipped ${card.name} for ${earned.toLocaleString()} tokens.`,
-        card.tone,
-        card.id,
-        player.id,
-        false,
-        { cost, tokens: earned },
-      )
-      break
-    }
-    case 'sonnet':
-      player.yieldMultiplier *= 1.5
-      break
-    case 'opus':
-      player.yieldMultiplier *= 3
-      break
-    case 'max':
-      player.costMultiplier *= 2
-      player.yieldMultiplier *= 2
-      break
-    case 'cache':
-      player.costMultiplier *= 0.5
-      break
-    case 'yolo':
-      player.unlimitedEngineering = true
-      break
-    case 'ralph':
-      player.mustEmptyHand = true
-      break
-    case 'new-squad':
-      state.discardPile.push(...player.hand.map((item) => item.definitionId))
-      player.hand = []
-      break
-    case 'loop':
-      player.actionLimit += 2
-      break
-    case 'credit-reset':
-      player.credits = 300
-      break
-    case 'halve-next':
-      rival.tokens = Math.floor(rival.tokens / 2)
-      break
-    case 'steal-next': {
-      const amount = Math.min(200, rival.tokens)
-      rival.tokens -= amount
-      player.tokens += amount
-      break
-    }
-    case 'swap-next':
-      ;[player.tokens, rival.tokens] = [rival.tokens, player.tokens]
-      break
-    case 'freeze-next':
-      rival.pending.push('freeze')
-      break
-    case 'outage-next':
-      rival.pending.push('outage')
-      break
-    case 'caveman-next':
-      rival.pending.push('caveman')
-      break
-    case 'observe-next':
-      player.revealPlayerIds = [rival.id]
-      break
-  }
-  if (card.effect !== 'engineer')
+  if (card.kind === 'engineering') {
+    const cost = Math.max(0, Math.ceil(card.cost * player.costMultiplier))
+    const earned = Math.max(0, Math.floor(card.yield * player.yieldMultiplier))
+    player.credits -= cost
+    player.tokens += earned
     addEvent(
       state,
-      `${player.name} played ${card.name}.`,
+      `${player.name} shipped ${card.name} for ${earned.toLocaleString()} tokens.`,
       card.tone,
       card.id,
       player.id,
+      false,
+      { cost, tokens: earned },
     )
+    return
+  }
+  const effect = card.effect
+  for (const target of targets(state, player, effect)) {
+    if (effect.tokenMultiplier !== undefined)
+      target.tokens = Math.floor(target.tokens * effect.tokenMultiplier)
+    if (effect.stealTokens) {
+      const amount = Math.min(effect.stealTokens, target.tokens)
+      target.tokens -= amount
+      player.tokens += amount
+    }
+    if (effect.swapTokens)
+      [player.tokens, target.tokens] = [target.tokens, player.tokens]
+    if (effect.resetCredits) target.credits = ECONOMY.creditCap
+    if (effect.addCredits)
+      target.credits = Math.min(
+        ECONOMY.creditCap,
+        target.credits + effect.addCredits,
+      )
+    if (effect.discardHand) {
+      state.discardPile.push(...target.hand.map((item) => item.definitionId))
+      target.hand = []
+    }
+    if (
+      effect.observability &&
+      target.id !== player.id &&
+      !player.revealPlayerIds.includes(target.id)
+    )
+      player.revealPlayerIds.push(target.id)
+    const turnEffect: CardEffect = {
+      costMultiplier: effect.costMultiplier,
+      yieldMultiplier: effect.yieldMultiplier,
+      engineeringCardsSlotCost: effect.engineeringCardsSlotCost,
+      playAllCards: effect.playAllCards,
+      disableModels: effect.disableModels,
+      disableCredits: effect.disableCredits,
+      addActions: effect.addActions,
+    }
+    if (target.id === player.id) {
+      applyTurnEffect(target, turnEffect)
+      if (effect.disableCredits) target.pending.push({ disableCredits: true })
+    } else if (Object.values(turnEffect).some((value) => value !== undefined))
+      target.pending.push(turnEffect)
+  }
+  addEvent(
+    state,
+    `${player.name} played ${card.name}.`,
+    card.tone,
+    card.id,
+    player.id,
+  )
 }
 
 function checkVictory(state: GameState) {
@@ -343,7 +387,7 @@ export function resolveAction(
 
   if (action.type === 'end-turn') {
     if (player.mustEmptyHand && player.hand.length)
-      throw new Error('Ralph says the hand must go.')
+      throw new Error('Play your entire hand before ending your turn.')
     endTurn(state, player)
     state.revision++
     return state
@@ -361,22 +405,23 @@ export function resolveAction(
   } else {
     if (!playable) throw new Error('That card has no legal effect right now.')
   }
-  const usesAction = !(
-    action.type === 'play' &&
-    card.kind === 'engineering' &&
-    player.unlimitedEngineering
-  )
+  const slotCost =
+    action.type === 'play' && card.kind === 'engineering'
+      ? (player.engineeringCardsSlotCost ??
+        (player.unlimitedEngineering ? 0 : 1))
+      : 1
+  const usesAction = slotCost > 0
   if (
     usesAction &&
     !player.mustEmptyHand &&
-    player.actionsUsed >= player.actionLimit
+    player.actionsUsed + slotCost > player.actionLimit
   ) {
     throw new Error('No actions left. Ship the turn.')
   }
 
   player.hand.splice(index, 1)
   state.discardPile.push(instance.definitionId)
-  if (usesAction) player.actionsUsed++
+  player.actionsUsed += slotCost
   if (action.type === 'play') applyCard(state, player, card)
   else
     addEvent(
@@ -399,6 +444,7 @@ function endTurn(state: GameState, player: PlayerState) {
   player.costMultiplier = 1
   player.yieldMultiplier = 1
   player.unlimitedEngineering = false
+  player.engineeringCardsSlotCost = 1
   player.mustEmptyHand = false
   player.modelBlocked = false
   player.revealPlayerIds = []
@@ -406,11 +452,9 @@ function endTurn(state: GameState, player: PlayerState) {
   const next = nextPlayer(state, player)
   state.activePlayerId = next.id
   state.turn++
-  const pending = next.pending.splice(0)
-  next.modelBlocked = pending.includes('outage')
-  next.yieldMultiplier *=
-    0.5 ** pending.filter((effect) => effect === 'caveman').length
-  if (!pending.includes('freeze'))
+  const pending = next.pending.splice(0).map(pendingEffect)
+  for (const effect of pending) applyTurnEffect(next, effect)
+  if (!pending.some((effect) => effect.disableCredits))
     next.credits = Math.min(
       ECONOMY.creditCap,
       next.credits + ECONOMY.refillCredits,

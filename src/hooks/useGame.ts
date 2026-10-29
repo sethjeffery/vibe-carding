@@ -6,7 +6,7 @@ import {
   type GameRequest,
   type GameResponse,
 } from '../lib/api'
-import { playSound } from '../lib/sound'
+import { playCardSound, playSound } from '../lib/sound'
 
 export function useGame() {
   const initialCode =
@@ -35,7 +35,10 @@ export function useGame() {
     ) {
       if (next.game.status === 'finished') playSound('win')
       else if (next.game.turn !== previous.game.turn) playSound('turn')
-      else if (next.game.events[0]?.cardId) playSound('card')
+      else if (next.game.events[0]?.cardId) {
+        const event = next.game.events[0]
+        playCardSound(event.cardId!, event.discarded)
+      }
     }
     roomRef.current = next
     setRoom(next)

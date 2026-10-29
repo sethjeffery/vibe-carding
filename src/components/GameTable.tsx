@@ -3,7 +3,6 @@ import {
   FiActivity,
   FiArrowRight,
   FiAward,
-  FiCheck,
   FiCpu,
   FiAlertTriangle,
   FiRepeat,
@@ -38,6 +37,15 @@ function PlayerTile({
   me: boolean
   target: number
 }) {
+  const pendingLabels = player.pending.map((effect) =>
+    typeof effect === 'string'
+      ? CARDS[effect].name
+      : effect.disableCredits
+        ? 'Budget Freeze'
+        : effect.disableModels
+          ? 'API Outage'
+          : 'Next-turn effect',
+  )
   return (
     <div
       className={`player-tile seat-${player.seat} ${active ? 'player-active' : ''}`}
@@ -63,9 +71,9 @@ function PlayerTile({
             {player.pending.length ? (
               <span
                 className="pending-chip"
-                title={`Next turn: ${player.pending.join(', ')}`}
+                title={`Next turn: ${pendingLabels.join(', ')}`}
               >
-                ! {player.pending.join(' · ')}
+                ! {pendingLabels.join(' · ')}
               </span>
             ) : null}
           </div>
@@ -114,12 +122,14 @@ export function GameTable({
     ? Math.max(0, active.actionLimit - active.actionsUsed)
     : 0
   const ownRemaining = Math.max(0, me.actionLimit - me.actionsUsed)
-  const revealed = game.players.find(
+  const revealed = game.players.filter(
     (player) => me.revealPlayerIds.includes(player.id) && player.hand !== null,
   )
   const observeEvent = game.events.find(
     (event) =>
-      event.cardId === 'observe' &&
+      event.cardId &&
+      CARDS[event.cardId]?.effect.observability &&
+      !event.discarded &&
       event.playerId === me.id &&
       event.turn === game.turn,
   )
@@ -161,7 +171,7 @@ export function GameTable({
                   title={`Credit cost ×${active.costMultiplier}`}
                   aria-label={`Credit cost ×${active.costMultiplier}`}
                 >
-                  <FiZap /> ×{active.costMultiplier}
+                  <FiZap /> Credit cost ×{active.costMultiplier}
                 </span>
               ) : null}
               {active?.yieldMultiplier !== undefined &&
@@ -170,32 +180,32 @@ export function GameTable({
                   title={`Token yield ×${active.yieldMultiplier}`}
                   aria-label={`Token yield ×${active.yieldMultiplier}`}
                 >
-                  <FiCpu /> ×{active.yieldMultiplier}
+                  <FiCpu /> Token yield ×{active.yieldMultiplier}
                 </span>
               ) : null}
               {active?.modelBlocked ? (
                 <span
                   className="effect-danger"
-                  title="API outage: models blocked"
-                  aria-label="API outage: models blocked"
+                  title="Models blocked"
+                  aria-label="Models blocked"
                 >
-                  <FiAlertTriangle />
+                  <FiAlertTriangle /> Models blocked
                 </span>
               ) : null}
               {active?.unlimitedEngineering ? (
                 <span
-                  title="YOLO: free engineering actions"
-                  aria-label="YOLO: free engineering actions"
+                  title="Free engineering actions"
+                  aria-label="Free engineering actions"
                 >
-                  <FiFastForward />
+                  <FiFastForward /> Free engineering actions
                 </span>
               ) : null}
               {active?.mustEmptyHand ? (
                 <span
-                  title="Ralph: play your entire hand"
-                  aria-label="Ralph: play your entire hand"
+                  title="Play your entire hand"
+                  aria-label="Play your entire hand"
                 >
-                  <FiRepeat />
+                  <FiRepeat /> Play your entire hand
                 </span>
               ) : null}
             </div>
@@ -232,7 +242,7 @@ export function GameTable({
                     event.text.endsWith(` binned ${card.name}.`)
                   const canReveal =
                     !discarded &&
-                    Boolean(revealed && event.id === observeEvent?.id)
+                    Boolean(revealed.length && event.id === observeEvent?.id)
                   const content = (
                     <>
                       <Card
@@ -282,8 +292,8 @@ export function GameTable({
                   }
                   onClick={() => onAction({ type: 'end-turn' })}
                 >
-                  {busy ? <FiLoader className="spin" /> : <FiCheck />}End turn
-                  <FiArrowRight />
+                  End turn
+                  {busy ? <FiLoader className="spin" /> : <FiArrowRight />}
                 </button>
               </div>
             </div>
@@ -335,12 +345,14 @@ export function GameTable({
         <div className="hand-cards">
           {me.hand?.map((instance) => {
             const playable = canPlay(game, me, instance.card)
-            const free =
-              playable &&
-              me.unlimitedEngineering &&
-              instance.card.kind === 'engineering'
+            const slotCost =
+              playable && instance.card.kind === 'engineering'
+                ? (me.engineeringCardsSlotCost ??
+                  (me.unlimitedEngineering ? 0 : 1))
+                : 1
+            const free = slotCost === 0
             const allowed =
-              isTurn && !busy && (ownRemaining > 0 || free || me.mustEmptyHand)
+              isTurn && !busy && (ownRemaining >= slotCost || me.mustEmptyHand)
             const action = playable ? 'Play' : 'Discard'
             return (
               <button
@@ -362,19 +374,16 @@ export function GameTable({
                 data-card-id={instance.instanceId}
               >
                 <Card card={instance.card} player={me} />
-                {(!playable && instance.card.kind !== 'engineering') || free ? (
-                  <span className="card-badge">
-                    {!playable ? 'Discard' : 'Bonus play'}
-                  </span>
-                ) : null}
               </button>
             )
           })}
         </div>
       </section>
-      {revealed && observeEvent && dismissedReveal !== observeEvent.id ? (
+      {revealed.length > 0 &&
+      observeEvent &&
+      dismissedReveal !== observeEvent.id ? (
         <RevealedHand
-          player={revealed}
+          players={revealed}
           onClose={() => dismissReveal(observeEvent.id)}
         />
       ) : null}

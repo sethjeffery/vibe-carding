@@ -29,6 +29,7 @@ async function invoke(seat, body, expectedStatus = 200) {
 }
 
 const created = await invoke(0, { op: 'create', name: 'Smoke Alpha' })
+assert.equal(created.game.players[0].credits, 1000)
 const { code } = created
 await Promise.all(
   [1, 2, 3].map(async (seat) => {
@@ -62,6 +63,8 @@ snapshot = await invoke(0, {
   target: 3000,
   expectedRevision: snapshot.game.revision,
 })
+assert(snapshot.game.players.every((player) => player.credits === 1000))
+assert.equal(snapshot.game.deckCount + 4 * 7, 67)
 assert.equal(snapshot.game.players[0].hand.length, 7)
 assert(snapshot.game.players.slice(1).every((p) => p.hand === null))
 for (const forbidden of ['drawPile', 'discardPile', 'rng'])

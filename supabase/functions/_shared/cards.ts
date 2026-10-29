@@ -1,22 +1,21 @@
 export type CardKind = 'engineering' | 'model' | 'mode' | 'utility' | 'sabotage'
-export type CardEffect =
-  | 'engineer'
-  | 'opus'
-  | 'sonnet'
-  | 'max'
-  | 'cache'
-  | 'yolo'
-  | 'ralph'
-  | 'new-squad'
-  | 'loop'
-  | 'credit-reset'
-  | 'halve-next'
-  | 'steal-next'
-  | 'swap-next'
-  | 'freeze-next'
-  | 'outage-next'
-  | 'caveman-next'
-  | 'observe-next'
+export interface CardEffect {
+  costMultiplier?: number
+  yieldMultiplier?: number
+  target?: 'current' | 'next' | 'all'
+  playAllCards?: boolean
+  engineeringCardsSlotCost?: number
+  disableModels?: boolean
+  disableCredits?: boolean
+  stealTokens?: number
+  addCredits?: number
+  resetCredits?: boolean
+  observability?: boolean
+  tokenMultiplier?: number
+  swapTokens?: boolean
+  discardHand?: boolean
+  addActions?: number
+}
 
 export interface CardDefinition {
   id: string
@@ -47,119 +46,192 @@ const definitions: Array<
     copy: string,
   ]
 > = [
+  ['bug', 'Roll Forward', 'engineering', {}, 150, 'Rolling back is so 2025.'],
   [
     'bug',
-    'Fix a Bug',
+    'Fix a Regression',
     'engineering',
-    'engineer',
-    50,
+    {},
+    100,
     'Closed as “works on my machine”.',
+  ],
+  ['div', 'Centre a Div', 'engineering', {}, 100, 'Only took six prompts.'],
+  [
+    'dark',
+    'Accessibility Audit',
+    'engineering',
+    {},
+    180,
+    '3% of users complained.',
   ],
   [
     'div',
-    'Centre a Div',
+    'CSS Animations',
     'engineering',
-    'engineer',
-    80,
-    'Only took six prompts.',
-  ],
-  [
-    'dark',
-    'Add Dark Mode',
-    'engineering',
-    'engineer',
-    120,
-    'Roadmap complete.',
+    {},
+    200,
+    'CEO specifically asked for it.',
   ],
   [
     'refactor',
     'Refactor',
     'engineering',
-    'engineer',
-    200,
-    'Same bugs, better folders.',
+    {},
+    250,
+    'Same bugs, now in folders.',
   ],
-  ['api', 'Ship an API', 'engineering', 'engineer', 300, 'REST-ish.'],
+  [
+    'documentation',
+    'Documentation',
+    'engineering',
+    {},
+    450,
+    'Bloat for the next AI to summarize.',
+  ],
+  ['api', 'Ship an API', 'engineering', {}, 350, 'Microservices!'],
+  ['api', 'Ship an API', 'engineering', {}, 500, 'We need GraphQL!'],
   [
     'backend',
     'Rewrite Backend',
     'engineering',
-    'engineer',
+    {},
+    600,
+    'The old one had too much context.',
+  ],
+  [
+    'rewrite',
+    'Rewrite in Rust',
+    'engineering',
+    {},
+    750,
+    "Everything's better in Rust!",
+  ],
+  [
+    'backend',
+    'Auth Layer',
+    'engineering',
+    {},
     500,
-    'The old one had context.',
+    'Includes x-backdoor header.',
   ],
   [
     'mvp',
     'Vibe Code MVP',
     'engineering',
-    'engineer',
-    650,
+    {},
+    750,
     'Production is the test suite.',
   ],
-  ['sonnet', 'Sonnet', 'model', 'sonnet', 0, 'Tasks yield ×1.5 this turn.'],
-  ['opus', 'Opus', 'model', 'opus', 0, 'Tasks yield ×3 this turn.'],
+  [
+    'sonnet',
+    'Sonnet',
+    'model',
+    { yieldMultiplier: 1.5 },
+    0,
+    'Yield ×1.5 this turn.',
+  ],
+  ['opus', 'Opus', 'model', { yieldMultiplier: 3 }, 0, 'Yield ×3 this turn.'],
   [
     'max',
     'MAX Mode',
     'mode',
-    'max',
+    { costMultiplier: 2, yieldMultiplier: 2 },
     0,
-    'Tasks cost ×2 and yield ×2 this turn.',
+    'Cost and yield doubled this turn.',
   ],
   [
     'cache',
     'Context Caching',
     'model',
-    'cache',
+    { costMultiplier: 0.5 },
     0,
-    'Tasks cost ×0.5 this turn.',
+    'Cost halved this turn.',
   ],
   [
     'yolo',
     'YOLO Mode',
     'mode',
-    'yolo',
+    { engineeringCardsSlotCost: 0 },
     0,
-    'Engineering plays use no actions this turn.',
+    'Play as many engineering cards as you want this turn.',
   ],
   [
     'ralph',
     'Ralph Wiggum',
     'mode',
-    'ralph',
+    { playAllCards: true },
     0,
-    'Resolve your whole hand before ending your turn.',
+    'You must play your whole hand before ending your turn.',
   ],
   [
     'squad',
     'New Squad',
     'utility',
-    'new-squad',
+    { discardHand: true },
     0,
     'Discard the rest of your hand.',
   ],
-  ['loop', '/loop', 'utility', 'loop', 0, 'Add two actions this turn.'],
+  [
+    'loop',
+    '/loop',
+    'utility',
+    { addActions: 2 },
+    0,
+    'Add two actions this turn.',
+  ],
   [
     'reset',
     'Credit Reset',
     'utility',
-    'credit-reset',
+    { resetCredits: true },
     0,
-    'Return to 300 credits.',
+    'Refill to the full 1,000 credits.',
+  ],
+  [
+    'payg-200',
+    'PAYG 200',
+    'utility',
+    { addCredits: 200 },
+    0,
+    'Add 200 credits, up to the cap.',
+  ],
+  [
+    'payg-300',
+    'PAYG 300',
+    'utility',
+    { addCredits: 300 },
+    0,
+    'Add 300 credits, up to the cap.',
+  ],
+  [
+    'payg-500',
+    'PAYG 500',
+    'utility',
+    { addCredits: 500 },
+    0,
+    'Add 500 credits, up to the cap.',
+  ],
+  [
+    'beta',
+    'Beta Tester',
+    'mode',
+    { costMultiplier: 0 },
+    0,
+    'Zero credit cost this turn.',
   ],
   [
     'direction',
     'New Design Direction',
     'sabotage',
-    'halve-next',
+    { target: 'next', tokenMultiplier: 0.8 },
     0,
-    'Halve the next player’s tokens.',
+    'Reduce the next player’s tokens by 20%.',
   ],
   [
     'webinar',
     'Forced Webinar',
     'sabotage',
-    'steal-next',
+    { target: 'next', stealTokens: 200 },
     0,
     'Steal up to 200 tokens from the next player.',
   ],
@@ -167,7 +239,7 @@ const definitions: Array<
     'swap',
     'Swap Players',
     'sabotage',
-    'swap-next',
+    { target: 'next', swapTokens: true },
     0,
     'Swap tokens with the next player.',
   ],
@@ -175,31 +247,31 @@ const definitions: Array<
     'freeze',
     'Budget Freeze',
     'sabotage',
-    'freeze-next',
+    { target: 'next', disableCredits: true },
     0,
-    'Next player gets no credit refill next turn.',
+    'Next player gets no credit refill one turn.',
   ],
   [
     'outage',
     'API Outage',
     'sabotage',
-    'outage-next',
+    { target: 'next', disableModels: true },
     0,
-    'Next player can’t use models next turn.',
+    'Next player can’t use models one turn.',
   ],
   [
     'caveman',
     'Caveman',
-    'sabotage',
-    'caveman-next',
+    'mode',
+    { costMultiplier: 0.5, yieldMultiplier: 0.5 },
     0,
-    'Next player’s tasks yield ×0.5 next turn.',
+    'Cost and yield both halved this turn.',
   ],
   [
     'observe',
     'Observability',
     'utility',
-    'observe-next',
+    { target: 'next', observability: true },
     0,
     'Reveal the next player’s hand until your turn ends.',
   ],
@@ -208,7 +280,16 @@ const definitions: Array<
 export const CARDS: Record<string, CardDefinition> = Object.fromEntries(
   definitions.map(([id, name, kind, effect, cost, copy]) => [
     id,
-    { id, name, kind, effect, cost, yield: cost, copy, tone: CARD_TONES[kind] },
+    {
+      id,
+      name,
+      kind,
+      effect,
+      cost,
+      yield: cost,
+      copy,
+      tone: CARD_TONES[kind],
+    },
   ]),
 )
 
@@ -228,7 +309,11 @@ export const DECK_COUNTS: Record<string, number> = {
   ralph: 2,
   squad: 2,
   loop: 2,
-  reset: 2,
+  reset: 1,
+  'payg-200': 2,
+  'payg-300': 2,
+  'payg-500': 2,
+  beta: 2,
   observe: 2,
   direction: 2,
   webinar: 2,

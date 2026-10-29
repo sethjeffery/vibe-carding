@@ -35,7 +35,7 @@ The network test covers concurrent joins, hidden hands, turn ownership, concurre
 
 ## Code map
 
-- `supabase/functions/_shared/cards.ts`: typed card catalogue and the 60-card supply.
+- `supabase/functions/_shared/cards.ts`: typed card catalogue and the 67-card supply.
 - `supabase/functions/_shared/engine.ts`: deterministic rules, legality, scoring, draws, and private views. Mutates a server-owned state; callers must persist it only after successful resolution.
 - `supabase/functions/_shared/request.ts`: validates untrusted API input.
 - `supabase/functions/game/index.ts`: authenticates requests and commits authoritative transitions.
@@ -64,14 +64,14 @@ The gateway JWT flag is disabled because the function itself validates every bea
 
 The source specification's locked rules are implemented. Provisional choices remain adjustable in the catalogue, `ECONOMY`, and the lobby target:
 
-- 300 starting credits, +100 on later turn starts, a 1,000-credit cap, and no extra refill on the first turn.
+- 1000 starting credits, +200 on later turn starts, a 1,000-credit cap, and no extra refill on the first turn.
 - Three actions, seven-card hands, multiplicative modifiers, cost rounded up, yield rounded down.
 - Every engineering card has a 1:1 base credit cost and token yield. Its large printed number is the base amount; active modifiers are reflected in its description.
-- Sabotage targets the next seat. Direction halves tokens with downward rounding; Webinar steals up to 200; Swap Players exchanges scores. Freeze prevents one refill, Outage blocks models for one turn, and Caveman halves task yield for one turn. Repeated Caveman effects stack.
+- Sabotage targets the next seat. Direction halves tokens with downward rounding; Webinar steals up to 200; Swap Players exchanges scores. Freeze prevents one refill and Outage blocks models for one turn. Caveman is a mode that halves subsequent engineering cost and yield for the current turn.
 - YOLO frees engineering plays, but discards still spend actions. Ralph overrides the action limit and permits legal discards; New Squad can clear Ralph's remaining hand.
 - Observability reveals the next player's hand only to its caster until that turn ends. Playing it opens a dismissible modal; clicking your Observability card on the table reopens it.
 - Turns have no timer and never end automatically. Existing matches ignore their old stored deadlines.
-- A card that changes no state, such as a 300-credit reset at exactly 300 credits, is discardable. Affordable tasks remain playable regardless of strategic value.
+- A card that changes no state, such as a credit reset or PAYG top-up at the 1,000-credit cap, is discardable. Affordable tasks remain playable regardless of strategic value.
 
 Authoritative state, deck order, RNG state, and unrevealed hands are never sent to clients or Realtime. A transaction commits each state revision, action receipt, and per-player notification together. Duplicate action IDs cannot spend a card twice.
 
@@ -80,3 +80,27 @@ Authoritative state, deck order, RNG state, and unrevealed hands are never sent 
 Balance is provisional: automated heuristics establish termination and invariants, not human fairness or match duration. Public matchmaking, progression, permanent card ownership, constructed decks, chat, and account recovery are outside v0.1.
 
 Anonymous signups have Supabase's configured rate limit. Creation is capped when a player has joined 30 games in the last hour. Persistent match and guest-account cleanup and larger-scale load testing should be added before a broad public launch. Supabase security advisories concerning anonymous access are expected for the user-scoped notification policy; the state/receipt tables intentionally have no client policies. Password/MFA advisories do not apply to this guest-only interface.
+
+Credit Reset refills to 1,000 credits (one copy). PAYG 200, 300, and 500 top up credits to the cap (two copies each). Beta Tester makes subsequent tasks free for the rest of the turn (two copies).
+
+### Configuring card mechanics
+
+Edit `effect` objects in `supabase/functions/_shared/cards.ts`; names and IDs do not select game behavior. For example, Caveman uses `{ costMultiplier: 0.5, yieldMultiplier: 0.5 }`. Update the card's descriptive copy when changing its mechanics.
+
+| Field                               | Meaning                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `costMultiplier`, `yieldMultiplier` | Multiply subsequent engineering cost/yield; stack multiplicatively and expire at turn end. Defaults: 1. |
+| `target`                            | `current` (default), `next` seat, or `all` opponents in seat order.                                     |
+| `playAllCards`                      | Require an empty hand to end the turn; allow plays/discards beyond the action limit.                    |
+| `engineeringCardsSlotCost`          | Actions used per engineering play (default 1; 0 for YOLO). Discards still cost 1.                       |
+| `disableModels`                     | Block model plays for the affected turn.                                                                |
+| `disableCredits`                    | Skip the target's next automatic credit refill; does not block credit cards.                            |
+| `stealTokens`                       | Transfer up to this many tokens from each target to the player.                                         |
+| `addCredits`, `resetCredits`        | Add credits up to the economy cap, or refill to that cap.                                               |
+| `observability`                     | Reveal targeted opponents' hands to the player until the player's turn ends.                            |
+| `tokenMultiplier`                   | Immediately multiply existing token balances, rounded down (Direction: 0.5).                            |
+| `swapTokens`                        | Exchange tokens with each target in seat order.                                                         |
+| `discardHand`                       | Discard the target's remaining hand (New Squad).                                                        |
+| `addActions`                        | Increase the affected turn's action limit (/loop).                                                      |
+
+Effects compose: any component with a legal effect makes a card playable. Balances, theft, swaps, hand discards and reveals resolve immediately. Turn modifiers apply immediately to the current player or queue for each opponent's next turn. Costs round up; earned tokens round down. Queued effects in saved games from the earlier engine remain supported.

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   CARDS,
+  ECONOMY,
   canPlay,
   createGame,
   joinGame,
@@ -17,6 +18,66 @@ function started() {
 }
 
 describe('game rules', () => {
+  it('starts every player with 1,000 credits', () => {
+    expect(started().players.map((player) => player.credits)).toEqual([
+      1000, 1000,
+    ])
+  })
+  it('refills 200 credits on later turns without exceeding the cap', () => {
+    const state = started()
+    const rival = state.players[1]
+    rival.credits = 300
+    resolveAction(state, 'a', { type: 'end-turn' })
+    expect(rival.credits).toBe(500)
+    rival.credits = 950
+    resolveAction(state, 'b', { type: 'end-turn' })
+    resolveAction(state, 'a', { type: 'end-turn' })
+    expect(rival.credits).toBe(ECONOMY.creditCap)
+  })
+
+  it.each(['reset', 'payg-200', 'payg-300', 'payg-500'])(
+    'restores credits with %s and only allows it below the cap',
+    (id) => {
+      const state = started()
+      const me = state.players[0]
+      me.credits = 0
+      me.hand = [{ instanceId: id, definitionId: id }]
+      resolveAction(state, 'a', { type: 'play', cardInstanceId: id })
+      expect(me.credits).toBe(CARDS[id].effect.addCredits ?? ECONOMY.creditCap)
+      expect(me.tokens).toBe(0)
+      expect(me.actionsUsed).toBe(1)
+      me.credits = 950
+      me.hand = [{ instanceId: 'again', definitionId: id }]
+      resolveAction(state, 'a', { type: 'play', cardInstanceId: 'again' })
+      expect(me.credits).toBe(ECONOMY.creditCap)
+      expect(canPlay(state, me, CARDS[id])).toBe(false)
+    },
+  )
+
+  it.each([
+    ['beta', 'max', 'mvp'],
+    ['max', 'beta', 'mvp'],
+    ['cache', 'beta', 'mvp'],
+    ['beta', 'cache', 'mvp'],
+  ])('keeps Beta Tester tasks free with %s then %s', (...ids) => {
+    const state = started()
+    const me = state.players[0]
+    me.credits = 0
+    me.hand = ids.map((id) => ({ instanceId: id, definitionId: id }))
+    for (const id of ids) {
+      expect(canPlay(state, me, CARDS[id])).toBe(true)
+      resolveAction(state, 'a', { type: 'play', cardInstanceId: id })
+    }
+    expect(me.credits).toBe(0)
+    expect(me.tokens).toBe(ids.includes('max') ? 1300 : 650)
+    expect(me.actionsUsed).toBe(3)
+    expect(state.events[0].economics?.cost).toBe(0)
+    expect(canPlay(state, me, CARDS.beta)).toBe(false)
+    resolveAction(state, 'a', { type: 'end-turn' })
+    expect(me.costMultiplier).toBe(1)
+    expect(canPlay(state, me, CARDS.mvp)).toBe(false)
+  })
+
   it('publishes resolved engineering economics to every player', () => {
     const state = started()
     const me = state.players[0]
@@ -67,6 +128,7 @@ describe('game rules', () => {
   it('only discards cards without a legal effect', () => {
     const state = started()
     const me = state.players[0]
+    me.credits = 300
     me.hand = [
       { instanceId: 'cheap', definitionId: 'bug' },
       { instanceId: 'expensive', definitionId: 'mvp' },
@@ -103,6 +165,7 @@ describe('game rules', () => {
   it('does not make YOLO discards free', () => {
     const state = started()
     const me = state.players[0]
+    me.credits = 300
     me.unlimitedEngineering = true
     me.actionsUsed = 3
     me.hand = [{ instanceId: 'expensive', definitionId: 'mvp' }]
@@ -136,6 +199,7 @@ describe('game rules', () => {
   it('stacks multipliers and checks full modified affordability', () => {
     const state = started()
     const me = state.players[0]
+    me.credits = 300
     me.hand = ['opus', 'max', 'refactor'].map((id) => ({
       instanceId: id,
       definitionId: id,
@@ -159,13 +223,14 @@ describe('game rules', () => {
     me.yieldMultiplier = 1.333
     me.hand = [{ instanceId: 'bug', definitionId: 'bug' }]
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'bug' })
-    expect(me.credits).toBe(283)
+    expect(me.credits).toBe(ECONOMY.startingCredits - 17)
     expect(me.tokens).toBe(66)
   })
 
   it('forces Ralph to clear unaffordable and nested special cards without deadlock', () => {
     const state = started()
     const me = state.players[0]
+    me.credits = 300
     me.actionsUsed = 2
     me.hand = ['ralph', 'mvp', 'loop', 'squad', 'bug'].map((id) => ({
       instanceId: id,
@@ -173,7 +238,7 @@ describe('game rules', () => {
     }))
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'ralph' })
     expect(() => resolveAction(state, 'a', { type: 'end-turn' })).toThrow(
-      'Ralph',
+      'Play your entire hand',
     )
     resolveAction(state, 'a', { type: 'discard', cardInstanceId: 'mvp' })
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'loop' })
@@ -202,6 +267,7 @@ describe('game rules', () => {
   it('applies next-turn effects before refill, then expires them', () => {
     const state = started()
     const rival = state.players[1]
+    rival.credits = 300
     rival.pending = ['freeze', 'outage', 'caveman']
     resolveAction(state, 'a', { type: 'end-turn' })
     expect(rival.credits).toBe(300)
@@ -293,17 +359,160 @@ describe('game rules', () => {
     expect(state).toEqual(before)
   })
 
-  it('deals a deterministic 60-card pool with unique card instances', () => {
+  it('deals a deterministic 67-card pool with unique card instances', () => {
     const first = started()
     const second = started()
     expect(
       first.drawPile.length +
         first.players.reduce((n, p) => n + p.hand.length, 0),
-    ).toBe(60)
+    ).toBe(67)
     expect(first.drawPile).toEqual(second.drawPile)
     expect(
       new Set(first.players.flatMap((p) => p.hand.map((c) => c.instanceId)))
         .size,
     ).toBe(14)
+  })
+})
+
+describe('configurable card mechanics', () => {
+  afterEach(() => {
+    delete CARDS.custom
+  })
+
+  function custom(effect: import('./engine').CardEffect) {
+    CARDS.custom = {
+      ...CARDS.opus,
+      id: 'custom',
+      name: 'Any free-text name',
+      kind: 'utility',
+      effect,
+    }
+    return { instanceId: 'custom', definitionId: 'custom' }
+  }
+
+  it('makes Caveman a forward-only mode that halves costs and yield, then expires', () => {
+    const state = started()
+    const [me, rival] = state.players
+    me.hand = ['bug', 'caveman', 'div'].map((id) => ({
+      instanceId: id,
+      definitionId: id,
+    }))
+    for (const id of ['bug', 'caveman', 'div'])
+      resolveAction(state, 'a', { type: 'play', cardInstanceId: id })
+    expect(CARDS.caveman.kind).toBe('mode')
+    expect(me.credits).toBe(910)
+    expect(me.tokens).toBe(90)
+    expect(rival.pending).toEqual([])
+    expect(state.events[0].economics).toEqual({ cost: 40, tokens: 40 })
+    resolveAction(state, 'a', { type: 'end-turn' })
+    expect([me.costMultiplier, me.yieldMultiplier]).toEqual([1, 1])
+  })
+
+  it('combines arbitrary numeric effects independently of names and IDs', () => {
+    const state = started()
+    const me = state.players[0]
+    me.credits = 500
+    me.hand = [
+      custom({
+        costMultiplier: 0.25,
+        yieldMultiplier: 4,
+        addCredits: 75,
+        addActions: 3,
+      }),
+      { instanceId: 'task', definitionId: 'bug' },
+    ]
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'custom' })
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'task' })
+    expect(me.credits).toBe(562)
+    expect(me.tokens).toBe(200)
+    expect(me.actionLimit).toBe(6)
+    expect(state.events[0].economics).toEqual({ cost: 13, tokens: 200 })
+  })
+
+  it('uses configured slot costs for engineering plays but one slot for discards', () => {
+    const state = started()
+    const me = state.players[0]
+    me.hand = [
+      custom({ engineeringCardsSlotCost: 2 }),
+      { instanceId: 'one', definitionId: 'bug' },
+      { instanceId: 'two', definitionId: 'bug' },
+    ]
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'custom' })
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'one' })
+    expect(me.actionsUsed).toBe(3)
+    expect(() =>
+      resolveAction(state, 'a', { type: 'play', cardInstanceId: 'two' }),
+    ).toThrow('No actions left')
+  })
+
+  it('applies All to every opponent and uses configured theft amounts', () => {
+    const state = createGame('a', 'Alpha', 42)
+    joinGame(state, 'b', 'Beta')
+    joinGame(state, 'c', 'Gamma')
+    startGame(state, 'a')
+    const [me, b, c] = state.players
+    b.tokens = 25
+    c.tokens = 300
+    me.hand = [
+      custom({
+        target: 'all',
+        stealTokens: 75,
+        tokenMultiplier: 0.5,
+        observability: true,
+      }),
+    ]
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'custom' })
+    expect([me.tokens, b.tokens, c.tokens]).toEqual([87, 0, 75])
+    expect(me.revealPlayerIds).toEqual(['b', 'c'])
+    expect(projectGame(state, 'a').players.every((p) => p.hand !== null)).toBe(
+      true,
+    )
+    expect(projectGame(state, 'b').players[2].hand).toBeNull()
+    resolveAction(state, 'a', { type: 'end-turn' })
+    expect(projectGame(state, 'a').players[1].hand).toBeNull()
+  })
+
+  it('queues numeric modifiers and disables before the target turn, then expires them', () => {
+    const state = started()
+    const [me, rival] = state.players
+    rival.credits = 100
+    me.hand = [
+      custom({
+        target: 'next',
+        costMultiplier: 2,
+        yieldMultiplier: 0.25,
+        disableCredits: true,
+        disableModels: true,
+      }),
+    ]
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'custom' })
+    expect(rival.costMultiplier).toBe(1)
+    expect(canPlay(state, me, CARDS.freeze)).toBe(false)
+    expect(canPlay(state, me, CARDS.outage)).toBe(false)
+    resolveAction(state, 'a', { type: 'end-turn' })
+    expect([
+      rival.credits,
+      rival.costMultiplier,
+      rival.yieldMultiplier,
+    ]).toEqual([100, 2, 0.25])
+    expect(canPlay(state, rival, CARDS.opus)).toBe(false)
+    resolveAction(state, 'b', { type: 'end-turn' })
+    resolveAction(state, 'a', { type: 'end-turn' })
+    expect([
+      rival.credits,
+      rival.costMultiplier,
+      rival.yieldMultiplier,
+    ]).toEqual([300, 1, 1])
+    expect(canPlay(state, rival, CARDS.opus)).toBe(true)
+  })
+
+  it('keeps composed cards playable when one component still has an effect', () => {
+    const state = started()
+    const me = state.players[0]
+    me.hand = [custom({ resetCredits: true, yieldMultiplier: 2 })]
+    expect(me.credits).toBe(ECONOMY.creditCap)
+    expect(canPlay(state, me, CARDS.custom)).toBe(true)
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'custom' })
+    expect(me.yieldMultiplier).toBe(2)
   })
 })
