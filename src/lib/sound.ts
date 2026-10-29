@@ -13,7 +13,7 @@ export function playSound(cue: 'card' | 'turn' | 'win') {
   if (!enabled) return
   try {
     context ??= new AudioContext()
-    void context.resume()
+    void context.resume().catch(() => undefined)
     const notes =
       cue === 'win'
         ? [523, 659, 784, 1046]
@@ -32,6 +32,10 @@ export function playSound(cue: 'card' | 'turn' | 'win') {
       oscillator.connect(gain).connect(context!.destination)
       oscillator.start(start)
       oscillator.stop(start + 0.16)
+      oscillator.onended = () => {
+        oscillator.disconnect()
+        gain.disconnect()
+      }
     })
   } catch {
     /* Audio is optional when a browser has no audio device. */
