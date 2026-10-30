@@ -149,8 +149,6 @@ it('optimistically takes visible cards and finishes Pair Programming without exp
   const state = scenario('pair-programming')
   resolveAction(state, 'a', { type: 'play', cardInstanceId: 'chosen' })
   resolveAction(state, 'a', { type: 'end-turn' })
-  resolveAction(state, 'b', { type: 'end-turn' })
-  resolveAction(state, 'c', { type: 'end-turn' })
   const game = projectGame(state, 'a')
   const before = structuredClone(game)
   const action = {
@@ -166,16 +164,14 @@ it('optimistically takes visible cards and finishes Pair Programming without exp
   resolveAction(state, 'a', { type: 'finish-replenishing' })
   expect(finish).toEqual(projectGame(state, 'a'))
   expect(finish!.replenishing).toBe(false)
-  expect(finish!.activePlayerId).toBe('a')
+  expect(finish!.activePlayerId).toBe('b')
 })
 
 it('optimistically closes the picker when the last available card is taken', () => {
   const state = scenario('pair-programming')
   resolveAction(state, 'a', { type: 'play', cardInstanceId: 'chosen' })
   resolveAction(state, 'a', { type: 'end-turn' })
-  resolveAction(state, 'b', { type: 'end-turn' })
   state.players[1].hand = state.players[1].hand.slice(0, 1)
-  resolveAction(state, 'c', { type: 'end-turn' })
   const action = {
     type: 'take-card',
     cardInstanceId: state.players[1].hand[0].instanceId,
@@ -184,4 +180,23 @@ it('optimistically closes the picker when the last available card is taken', () 
   resolveAction(state, 'a', action)
   expect(preview).toEqual(projectGame(state, 'a'))
   expect(preview!.replenishing).toBe(false)
+})
+
+it('predicts public refill counts after Finish reshuffles discards without inventing visible cards', () => {
+  const state = scenario('pair-programming')
+  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'chosen' })
+  resolveAction(state, 'a', { type: 'end-turn' })
+  resolveAction(state, 'a', {
+    type: 'take-card',
+    cardInstanceId: state.players[1].hand[0].instanceId,
+  })
+  state.drawPile = []
+  state.discardPile = ['bug', 'div']
+  const preview = optimisticCardAction(projectGame(state, 'a'), {
+    type: 'finish-replenishing',
+  })
+  resolveAction(state, 'a', { type: 'finish-replenishing' })
+  expect(preview).toEqual(projectGame(state, 'a'))
+  expect(preview!.players[1].hand).toBeNull()
+  expect(preview!.players[1].handCount).toBe(7)
 })

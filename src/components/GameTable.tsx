@@ -701,7 +701,15 @@ export function GameTable({
                 }
                 data-card-id={instance.instanceId}
               >
-                <Card card={instance.card} player={me} />
+                <Card
+                  card={instance.card}
+                  player={me}
+                  className={
+                    !playable && instance.card.effect.replenishFromPlayers
+                      ? 'card-unavailable'
+                      : ''
+                  }
+                />
               </button>
             )
           })}

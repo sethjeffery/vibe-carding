@@ -200,7 +200,7 @@ it('allows grey unaffordable engineering cards under YOLO even without actions r
   }
 })
 
-it('shows only the next player’s hand in the turn-start Pair Programming picker', () => {
+it('shows only the next player’s hand in the end-of-turn Pair Programming picker', () => {
   const state = createGame('a', 'Alpha', 42)
   joinGame(state, 'b', 'Beta')
   joinGame(state, 'c', 'Gamma')
@@ -211,9 +211,6 @@ it('shows only the next player’s hand in the turn-start Pair Programming picke
   resolveAction(state, 'a', { type: 'play', cardInstanceId: 'pair' })
   expect(render(state, 'a')).not.toContain('pair-dialog')
   resolveAction(state, 'a', { type: 'end-turn' })
-  expect(render(state, 'a')).not.toContain('pair-dialog')
-  resolveAction(state, 'b', { type: 'end-turn' })
-  resolveAction(state, 'c', { type: 'end-turn' })
   const html = render(state, 'a')
   expect(html).toContain('pair-dialog')
   expect(html).toContain('aria-label="Beta’s hand"')
@@ -293,8 +290,6 @@ it('limits Pair Programming choices to the cards actually left in opponents’ h
   state.players[1].hand = state.players[1].hand.slice(0, 2)
   resolveAction(state, 'a', { type: 'play', cardInstanceId: 'c1000' })
   resolveAction(state, 'a', { type: 'end-turn' })
-  state.players[1].hand = state.players[1].hand.slice(0, 2)
-  resolveAction(state, 'b', { type: 'end-turn' })
   const html = render(state, 'a')
   expect(html).toContain('Choose up to 2 more cards')
   expect(html).toContain('Finish</button>')
@@ -337,3 +332,21 @@ it('keeps a single played card in one fixed track when no actions remain', () =>
     '--play-count:1;grid-template-columns:var(--played-card-width)',
   )
 })
+
+it.each([1, -1] as const)(
+  'greys Pair Programming for an empty next hand in direction %i',
+  (direction) => {
+    const state = createGame('a', 'Alpha', 42)
+    joinGame(state, 'b', 'Beta')
+    joinGame(state, 'c', 'Gamma')
+    startGame(state, 'a')
+    state.direction = direction
+    state.players[direction === 1 ? 1 : 2].hand = []
+    state.players[0].hand = [
+      { instanceId: 'c1000', definitionId: 'pair-programming' },
+    ]
+    const html = render(state, 'a')
+    expect(html).toContain('aria-label="Discard Pair Programming"')
+    expect(html).toContain('card-unavailable')
+  },
+)

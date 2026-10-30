@@ -55,6 +55,25 @@ export function optimisticCardAction(
   const next = projectGame(state, game.meId)
   next.deckCount = game.deckCount
   next.discardCount += game.discardCount
+  if (next.turn !== game.turn) {
+    // New card identities stay private until confirmation; only predict public counts.
+    if (next.activePlayerId === game.meId) return null
+    const active = next.players.find(
+      (player) => player.id === next.activePlayerId,
+    )
+    if (active) {
+      const count = Math.min(
+        7 - active.handCount,
+        game.deckCount + game.discardCount,
+      )
+      active.handCount += count
+      if (count > game.deckCount) {
+        next.deckCount = game.discardCount - (count - game.deckCount)
+        next.discardCount = 0
+      } else next.deckCount -= count
+      delete next.aiHand
+    }
+  }
   next.players.forEach((player, index) => {
     // Hidden cards are supplied only by the server.
     if (game.players[index].hand === null) player.hand = null

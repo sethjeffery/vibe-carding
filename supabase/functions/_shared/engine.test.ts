@@ -398,8 +398,6 @@ describe('game rules', () => {
     expect(projectGame(state, 'a').players[1].hand).toBeNull()
     expect(projectGame(state, 'a')).not.toHaveProperty('undoHistory')
     resolveAction(state, 'a', { type: 'end-turn' })
-    expect(projectGame(state, 'a').players[1].hand).toBeNull()
-    resolveAction(state, 'b', { type: 'end-turn' })
     view = projectGame(state, 'a')
     expect(view.players[1].hand).toHaveLength(7)
     expect(projectGame(state, 'b').players[0].hand).toBeNull()

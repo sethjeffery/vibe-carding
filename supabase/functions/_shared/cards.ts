@@ -312,7 +312,7 @@ const definitions: Array<
     'utility',
     { replenishFromPlayers: true },
     0,
-    "Next turn, replenish from the next player's cards.",
+    "Replenish your hand from the next player's cards.",
   ],
 ]
 

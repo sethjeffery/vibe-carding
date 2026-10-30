@@ -321,7 +321,13 @@ function targets<T>(
 
 export function canPlay(
   state: {
-    players: Array<Pick<PlayerState, 'tokens' | 'pending'> & { id?: string }>
+    players: Array<
+      Pick<PlayerState, 'tokens' | 'pending'> & {
+        id?: string
+        hand?: unknown[] | null
+        handCount?: number
+      }
+    >
     direction?: 1 | -1
     queuedCards?: QueuedCard[]
   },
@@ -403,7 +409,11 @@ export function canPlay(
         (p) => !p.pending.some((e) => pendingEffect(e).skipTurn),
       )) ||
     effect.reverseDirection ||
-    (effect.replenishFromPlayers && !player.pairProgramming),
+    (effect.replenishFromPlayers &&
+      !player.pairProgramming &&
+      (nextPlayer(state, player).handCount ??
+        nextPlayer(state, player).hand?.length ??
+        0) > 0),
   )
 }
 
@@ -573,7 +583,14 @@ export function resolveAction(
     state.queuedCards = []
     state.undoHistory = []
     checkVictory(state)
-    if (!state.winnerId) endTurn(state, player)
+    if (!state.winnerId) {
+      state.replenishing = Boolean(
+        player.pairProgramming &&
+        player.hand.length < 7 &&
+        nextPlayer(state, player).hand.length,
+      )
+      if (!state.replenishing) endTurn(state, player)
+    }
     state.revision++
     return state
   }
@@ -647,7 +664,7 @@ export function resolveAction(
 }
 
 function finishReplenishing(state: GameState, player: PlayerState) {
-  // Older saved games opened the picker after committing the turn.
+  // Keep already-open turn-start pickers from older games playable.
   const endingTurn = player.pairProgramming === true
   state.replenishing = false
   player.pairProgramming = false
@@ -663,6 +680,7 @@ function endTurn(state: GameState, player: PlayerState) {
   player.engineeringCardsSlotCost = 1
   player.mustEmptyHand = false
   player.modelBlocked = false
+  player.pairProgramming = false
 
   let next = nextPlayer(state, player)
   state.turn++
@@ -683,12 +701,7 @@ function endTurn(state: GameState, player: PlayerState) {
     state.turn++
   }
   state.activePlayerId = next.id
-  if (next.pairProgramming) {
-    next.pairProgramming = false
-    state.replenishing = Boolean(
-      next.hand.length < 7 && nextPlayer(state, next).hand.length,
-    )
-  } else draw(state, next, 7 - next.hand.length)
+  draw(state, next, 7 - next.hand.length)
   const pending = next.pending.splice(0).map(pendingEffect)
   for (const effect of pending) applyTurnEffect(next, effect)
   const beforeCredits = next.credits

@@ -172,8 +172,6 @@ it('chooses face-up cards for Pair Programming until its hand is replenished', (
     ai.id,
   )
   resolveClientAction(state, 'host', { type: 'end-turn' }, ai.id)
-  expect(state.replenishing).toBeFalsy()
-  resolveAction(state, 'host', { type: 'end-turn' })
   expect(state.replenishing).toBe(true)
   for (let i = 0; state.replenishing && i < 7; i++) {
     const action = chooseAIAction(projectGame(state, 'host'))
@@ -201,10 +199,6 @@ it('only takes the next player’s cards even when the host can see a stronger h
     ai.id,
   )
   resolveClientAction(state, 'host', { type: 'end-turn' }, ai.id)
-  resolveAction(state, 'guest', { type: 'end-turn' })
-  state.players[0].hand = [{ instanceId: 'c200', definitionId: 'fable' }]
-  state.players[2].hand = [{ instanceId: 'c300', definitionId: 'centre-div' }]
-  resolveAction(state, 'host', { type: 'end-turn' })
   const view = projectGame(state, 'host')
   expect(view.players[0].hand).not.toBeNull()
   expect(chooseAIAction(view)).toEqual({

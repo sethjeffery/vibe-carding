@@ -102,114 +102,6 @@ it('Pivot alternates normally with two players and survives multiple turns', () 
   expect(state.direction).toBe(-1)
 })
 
-function beginPairTurn(
-  state: ReturnType<typeof game>,
-  beforeStart?: () => void,
-) {
-  resolveAction(state, 'p0', { type: 'end-turn' })
-  while (state.activePlayerId !== 'p0') {
-    const active = state.players.find((p) => p.id === state.activePlayerId)!
-    if (
-      (active.seat + (state.direction ?? 1) + state.players.length) %
-        state.players.length ===
-      0
-    )
-      beforeStart?.()
-    resolveAction(state, active.id, { type: 'end-turn' })
-  }
-}
-
-it('Pair Programming transfers remaining cards and refills its victim only when their turn starts', () => {
-  const state = game()
-  hand(state, ['pair-programming', 'bug'])
-  const deck = [...state.drawPile]
-  const victimHand = [...state.players[1].hand]
-  play(state)
-  expect(projectGame(state, 'p0').players[1].hand).toBeNull()
-  beginPairTurn(state)
-  expect(state.replenishing).toBe(true)
-  expect(projectGame(state, 'p0').players[1].hand).not.toBeNull()
-  expect(projectGame(state, 'p0').players[2].hand).toBeNull()
-  expect(projectGame(state, 'p1').players[2].hand).toBeNull()
-  expect(() => resolveAction(state, 'p0', { type: 'undo' })).toThrow(
-    'Choose cards',
-  )
-  const before = structuredClone(state)
-  expect(() =>
-    resolveAction(state, 'p1', {
-      type: 'take-card',
-      cardInstanceId: victimHand[0].instanceId,
-    }),
-  ).toThrow('Wait')
-  expect(() =>
-    resolveAction(state, 'p0', { type: 'take-card', cardInstanceId: 'c1001' }),
-  ).toThrow('next player')
-  expect(state).toEqual(before)
-  for (const card of victimHand.slice(0, 5)) {
-    resolveAction(state, 'p0', {
-      type: 'take-card',
-      cardInstanceId: card.instanceId,
-    })
-    expect(state.drawPile).toEqual(deck)
-  }
-  expect(state.players[1].hand).toEqual(victimHand.slice(5))
-  resolveAction(state, 'p0', {
-    type: 'take-card',
-    cardInstanceId: victimHand[5].instanceId,
-  })
-  expect(state.players[0].hand).toEqual([
-    { definitionId: 'bug', instanceId: 'c1001' },
-    ...victimHand.slice(0, 6),
-  ])
-  expect(state.players[1].hand).toEqual(victimHand.slice(6))
-  expect(state.drawPile).toEqual(deck)
-  expect(state.replenishing).toBe(false)
-  expect(state.activePlayerId).toBe('p0')
-  expect(projectGame(state, 'p0').players[1].hand).toBeNull()
-  expect(state.events.some((event) => event.stolenFromId === 'p1')).toBe(true)
-  resolveAction(state, 'p0', { type: 'end-turn' })
-  expect(state.players[1].hand).toHaveLength(7)
-})
-
-it('Pair Programming starts the turn with only the cards available to steal', () => {
-  const state = game()
-  hand(state, ['pair-programming'])
-  play(state)
-  beginPairTurn(state, () => {
-    state.players[1].hand = [{ instanceId: 'c2000', definitionId: 'bug' }]
-  })
-  const deck = [...state.drawPile]
-  resolveAction(state, 'p0', { type: 'take-card', cardInstanceId: 'c2000' })
-  expect(state.replenishing).toBe(false)
-  expect(state.activePlayerId).toBe('p0')
-  expect(state.players[0].hand).toHaveLength(1)
-  expect(state.players[0].actionsUsed).toBe(0)
-  expect(state.players[1].hand).toHaveLength(0)
-  expect(state.drawPile).toEqual(deck)
-  resolveAction(state, 'p0', { type: 'end-turn' })
-  expect(state.players[0].hand).toHaveLength(1)
-  expect(state.players[1].hand).toHaveLength(7)
-  resolveAction(state, 'p1', { type: 'end-turn' })
-  resolveAction(state, 'p2', { type: 'end-turn' })
-  expect(state.players[0].hand).toHaveLength(7)
-})
-
-it('Pair Programming skips selection when no target cards remain at turn start', () => {
-  const state = game()
-  hand(state, ['pair-programming'])
-  play(state)
-  const deck = [...state.drawPile]
-  beginPairTurn(state, () => {
-    state.players[1].hand = []
-    state.players[2].hand = []
-  })
-  expect(state.activePlayerId).toBe('p0')
-  expect(state.players[0].hand).toHaveLength(0)
-  expect(state.replenishing).toBe(false)
-  expect(state.players[0].pairProgramming).toBe(false)
-  expect(state.drawPile).toEqual(deck)
-})
-
 it.each([2, 4, 5, 8, 9, 12, 13, 16])(
   'scales the deck for %i players and deals full unique hands',
   (count) => {
@@ -277,14 +169,49 @@ it('does not draw cards for skipped turns, but still draws under Budget Freeze',
   expect(state.players[1].credits).toBe(100)
 })
 
+it('Pair Programming opens at this turn’s end, and choosing cards then passes the turn', () => {
+  const state = game()
+  hand(state, ['pair-programming', 'bug'])
+  const deck = [...state.drawPile]
+  const victimHand = [...state.players[1].hand]
+  play(state)
+  expect(projectGame(state, 'p0').players[1].hand).toBeNull()
+  resolveAction(state, 'p0', { type: 'end-turn' })
+  expect(state.replenishing).toBe(true)
+  expect(state.activePlayerId).toBe('p0')
+  expect(state.players[0].hand).toHaveLength(1)
+  expect(projectGame(state, 'p0').players[1].hand).not.toBeNull()
+  expect(projectGame(state, 'p0').players[2].hand).toBeNull()
+  for (const card of victimHand.slice(0, 5)) {
+    resolveAction(state, 'p0', {
+      type: 'take-card',
+      cardInstanceId: card.instanceId,
+    })
+    expect(state.drawPile).toEqual(deck)
+  }
+  resolveAction(state, 'p0', {
+    type: 'take-card',
+    cardInstanceId: victimHand[5].instanceId,
+  })
+  expect(state.replenishing).toBe(false)
+  expect(state.activePlayerId).toBe('p1')
+  expect(state.players[0].hand).toEqual([
+    { instanceId: 'c1001', definitionId: 'bug' },
+    ...victimHand.slice(0, 6),
+  ])
+  expect(state.players[1].hand).toHaveLength(7)
+  expect(state.players[1].hand[0]).toEqual(victimHand[6])
+  expect(state.drawPile).toEqual(deck.slice(0, -6))
+})
+
 it.each([1, -1] as const)(
-  'Pair Programming only reveals and steals from the next player in direction %i',
+  'Pair Programming targets only the next player in direction %i',
   (direction) => {
     const state = game()
     state.direction = direction
     hand(state, ['pair-programming'])
     play(state)
-    beginPairTurn(state)
+    resolveAction(state, 'p0', { type: 'end-turn' })
     const target = state.players[direction === 1 ? 1 : 2]
     const other = state.players[direction === 1 ? 2 : 1]
     const view = projectGame(state, 'p0')
@@ -299,121 +226,55 @@ it.each([1, -1] as const)(
       }),
     ).toThrow('next player')
     expect(state).toEqual(before)
-    const chosen = target.hand[0]
-    resolveAction(state, 'p0', {
-      type: 'take-card',
-      cardInstanceId: chosen.instanceId,
-    })
-    expect(state.players[0].hand).toContainEqual(chosen)
   },
 )
 
-it('stops when the target runs out at turn start even if other players have cards', () => {
+it('stops when the target runs out without taking from any other player', () => {
   const state = game()
   hand(state, ['pair-programming'])
-  play(state)
-  beginPairTurn(state, () => {
-    state.players[1].hand = state.players[1].hand.slice(0, 2)
-  })
+  state.players[1].hand = state.players[1].hand.slice(0, 2)
   const available = [...state.players[1].hand]
   const untouched = structuredClone(state.players[2].hand)
+  play(state)
+  resolveAction(state, 'p0', { type: 'end-turn' })
   for (const card of available)
     resolveAction(state, 'p0', {
       type: 'take-card',
       cardInstanceId: card.instanceId,
     })
   expect(state.replenishing).toBe(false)
-  expect(state.activePlayerId).toBe('p0')
-  expect(state.players[0].hand).toEqual(available)
-  expect(state.players[1].hand).toHaveLength(0)
-  expect(state.players[2].hand).toEqual(untouched)
-})
-
-it('skips the opening picker when the next player is empty even if another hand is full', () => {
-  const state = game()
-  hand(state, ['pair-programming'])
-  play(state)
-  beginPairTurn(state, () => {
-    state.players[1].hand = []
-  })
-  const untouched = structuredClone(state.players[2].hand)
-  expect(state.replenishing).toBe(false)
-  expect(state.activePlayerId).toBe('p0')
-  expect(state.players[0].hand).toHaveLength(0)
-  expect(state.players[2].hand).toEqual(untouched)
-})
-
-it('never draws or steals at turn end, including after playing Pair Programming', () => {
-  const state = game()
-  hand(state, ['pair-programming', 'bug'])
-  play(state)
-  const ownHand = structuredClone(state.players[0].hand)
-  const deck = [...state.drawPile]
-  const otherHands = structuredClone(state.players.slice(1).map((p) => p.hand))
-  resolveAction(state, 'p0', { type: 'end-turn' })
-  expect(state.players[0].hand).toEqual(ownHand)
-  expect(state.players[0].pairProgramming).toBe(true)
-  expect(state.players.slice(1).map((p) => p.hand)).toEqual(otherHands)
-  expect(state.drawPile).toEqual(deck)
-  expect(state.replenishing).toBeFalsy()
-  expect(projectGame(state, 'p0').players[1].hand).toBeNull()
-  resolveAction(state, 'p1', { type: 'end-turn' })
-  resolveAction(state, 'p2', { type: 'end-turn' })
-  expect(state.activePlayerId).toBe('p0')
-  expect(state.replenishing).toBe(true)
-  expect(state.players[0].hand).toEqual(ownHand)
-})
-
-it('keeps Pair Programming queued across a skipped turn', () => {
-  const state = game()
-  hand(state, ['pair-programming'])
-  play(state)
-  state.players[0].pending = [{ skipTurn: true }]
-  resolveAction(state, 'p0', { type: 'end-turn' })
-  resolveAction(state, 'p1', { type: 'end-turn' })
-  resolveAction(state, 'p2', { type: 'end-turn' })
   expect(state.activePlayerId).toBe('p1')
-  expect(state.players[0].pairProgramming).toBe(true)
-  expect(state.players[0].hand).toHaveLength(0)
-  resolveAction(state, 'p1', { type: 'end-turn' })
-  resolveAction(state, 'p2', { type: 'end-turn' })
-  expect(state.activePlayerId).toBe('p0')
-  expect(state.replenishing).toBe(true)
+  expect(state.players[0].hand).toEqual(available)
+  expect(state.players[1].hand).toHaveLength(7)
+  expect(state.players[2].hand).toEqual(untouched)
 })
 
 it.each([0, 2])(
-  'can Finish Pair Programming after choosing %i cards without drawing or ending the turn',
+  'Finish after choosing %i cards ends the selection and passes play',
   (count) => {
     const state = game()
     hand(state, ['pair-programming'])
     play(state)
-    beginPairTurn(state)
+    resolveAction(state, 'p0', { type: 'end-turn' })
     for (const card of [...state.players[1].hand].slice(0, count))
       resolveAction(state, 'p0', {
         type: 'take-card',
         cardInstanceId: card.instanceId,
       })
-    const before = structuredClone(state)
     resolveAction(state, 'p0', { type: 'finish-replenishing' })
     expect(state.replenishing).toBe(false)
-    expect(state.activePlayerId).toBe('p0')
-    expect(state.turn).toBe(before.turn)
-    expect(state.players[0].actionsUsed).toBe(0)
+    expect(state.activePlayerId).toBe('p1')
     expect(state.players[0].hand).toHaveLength(count)
-    expect(state.drawPile).toEqual(before.drawPile)
-    expect(state.players[1].hand).toEqual(before.players[1].hand)
-    expect(projectGame(state, 'p0').players[1].hand).toBeNull()
-    expect(() =>
-      resolveAction(state, 'p0', { type: 'finish-replenishing' }),
-    ).toThrow('not replenishing')
+    expect(state.players[0].pairProgramming).toBe(false)
+    expect(state.players[1].hand).toHaveLength(7)
   },
 )
 
-it('only allows the active player to finish a current selection', () => {
+it('only allows the active player to Finish', () => {
   const state = game()
   hand(state, ['pair-programming'])
   play(state)
-  beginPairTurn(state)
+  resolveAction(state, 'p0', { type: 'end-turn' })
   const before = structuredClone(state)
   expect(() =>
     resolveAction(state, 'p1', { type: 'finish-replenishing' }),
@@ -421,28 +282,42 @@ it('only allows the active player to finish a current selection', () => {
   expect(state).toEqual(before)
 })
 
-it.each(['finish-replenishing', 'take-card'] as const)(
-  'continues legacy end-of-turn Pair Programming games with %s',
-  (type) => {
+it.each([1, -1] as const)(
+  'makes Pair Programming unplayable if the next player is empty in direction %i',
+  (direction) => {
     const state = game()
-    state.replenishing = true
-    const player = state.players[0]
-    player.pairProgramming = true
-    player.actionsUsed = 3
-    player.hand = []
-    const victim = state.players[1]
-    victim.hand = victim.hand.slice(0, 1)
-    resolveAction(
-      state,
-      'p0',
-      type === 'take-card'
-        ? { type, cardInstanceId: victim.hand[0].instanceId }
-        : { type },
-    )
-    expect(state.replenishing).toBe(false)
-    expect(state.activePlayerId).toBe('p1')
-    expect(player.hand).toHaveLength(type === 'take-card' ? 1 : 0)
-    expect(player.pairProgramming).toBe(false)
-    expect(player.actionsUsed).toBe(0)
+    state.direction = direction
+    const target = state.players[direction === 1 ? 1 : 2]
+    target.hand = []
+    hand(state, ['pair-programming'])
+    const before = structuredClone(state)
+    expect(() => play(state)).toThrow('no legal effect')
+    expect(state).toEqual(before)
+    resolveAction(state, 'p0', { type: 'discard', cardInstanceId: 'c1000' })
+    expect(state.players[0].pairProgramming).toBeFalsy()
+    resolveAction(state, 'p0', { type: 'end-turn' })
+    expect(state.replenishing).toBeFalsy()
+    expect(state.activePlayerId).toBe(target.id)
   },
 )
+
+it('skips selection if Pivot changes the target to an empty hand after Pair Programming', () => {
+  const state = game()
+  state.players[2].hand = []
+  hand(state, ['pair-programming', 'pivot'])
+  play(state)
+  play(state, 1)
+  resolveAction(state, 'p0', { type: 'end-turn' })
+  expect(state.replenishing).toBe(false)
+  expect(state.activePlayerId).toBe('p2')
+  expect(state.players[0].hand).toHaveLength(0)
+})
+
+it('keeps already-open turn-start selections from older games playable', () => {
+  const state = game()
+  state.replenishing = true
+  state.players[0].pairProgramming = false
+  resolveAction(state, 'p0', { type: 'finish-replenishing' })
+  expect(state.activePlayerId).toBe('p0')
+  expect(state.replenishing).toBe(false)
+})

@@ -109,7 +109,8 @@ export function chooseAIAction(game: GameView): GameAction | null {
       resolveAction(committed, me.id, { type: 'end-turn' })
     committed.players.find((p) => p.id === me.id)!.hand = me.hand
     const score =
-      evaluate(committed, me.id) + (committed.turn - current.turn - 1) * 300
+      evaluate(committed, me.id) +
+      Math.max(0, committed.turn - current.turn - 1) * 300
     if (
       (!me.mustEmptyHand || !me.hand.length || current.status === 'finished') &&
       score > bestScore

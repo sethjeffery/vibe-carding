@@ -1169,6 +1169,9 @@ input::placeholder {
 .played-cards > .action-space {
   width: var(--played-card-width);
 }
+.played-cards > .played-card {
+  z-index: 1;
+}
 
 .played-card {
   position: relative;
@@ -1304,9 +1307,9 @@ input::placeholder {
   width: 100%;
   max-width: 1700px;
   height: var(--hand-height);
-  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  padding: 12px 2px calc(12px + env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: 60px minmax(0, 1fr);
+  grid-template-columns: 60px minmax(0, 1fr) 60px;
   align-items: start;
   gap: 14px;
   background: #111510f5;
@@ -1332,8 +1335,8 @@ input::placeholder {
   border-radius: 5px;
   background: repeating-linear-gradient(
     to top,
-    #293124 0,
-    #293124 calc(20% - 1px),
+    #111510f5 0,
+    #111510f5 calc(20% - 1px),
     #526542 20%
   );
   overflow: hidden;
@@ -1344,12 +1347,13 @@ input::placeholder {
   left: 0;
   right: 0;
   background: linear-gradient(to top, #86b330, #d3fc53);
-  border-radius: 3px;
+  border-radius: 4px;
+  border: solid 2px #111510f5;
   transition: height 0.45s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 .credits-meter strong {
   color: #d3fc53;
-  font: 700 17px var(--font-mono);
+  font: 700 13px var(--font-mono);
   line-height: 1.2;
 }
 .credits-meter > span {
@@ -1386,7 +1390,9 @@ input::placeholder {
 }
 .hand-cards {
   display: grid;
-  grid-template-columns: repeat(7, minmax(148px, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: max(148px, calc((100% - 60px) / 7));
+  justify-content: safe center;
   gap: 10px;
   overflow-x: auto;
   padding: 8px 10px 14px;
@@ -1794,7 +1800,7 @@ input::placeholder {
   .hand-section {
     padding-left: 10px;
     padding-right: 10px;
-    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
     gap: 8px;
   }
   .credits-meter strong {

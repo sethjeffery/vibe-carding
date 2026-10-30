@@ -60,10 +60,9 @@ export function Rules({ onClose }: { onClose: () => void }) {
         <div>
           <h3>Pair Programming</h3>
           <p>
-            At the start of your next turn, choose face-up cards from the next
-            player instead of drawing until you have seven cards or their hand
-            is empty, or choose Finish early. Hands are replenished at the start
-            of each player’s turn.
+            At the end of this turn, take face-up cards from the next player
+            until you have seven, their hand is empty, or you choose Finish.
+            Hands are replenished at the start of each player’s turn.
           </p>
         </div>
       </div>
