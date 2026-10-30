@@ -44,9 +44,7 @@ export function Rules({ onClose }: { onClose: () => void }) {
           <h3>Order is everything</h3>
           <p>
             Models and modes affect engineering cards played after them.
-            Multipliers stack. You must afford the full cost. YOLO removes the
-            action cost of engineering cards, including unaffordable cards.
-            These are discarded without spending credits or earning tokens.
+            Multipliers stack. You must afford the full cost.
           </p>
         </div>
       </div>
