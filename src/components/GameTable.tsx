@@ -9,7 +9,6 @@ import {
 import {
   FiActivity,
   FiArrowRight,
-  FiAward,
   FiCpu,
   FiAlertTriangle,
   FiRepeat,
@@ -29,6 +28,7 @@ import type { GameResponse } from '../lib/api'
 import { Card } from './Card'
 import { PairProgramming } from './PairProgramming'
 import { TokenScore } from './TokenScore'
+import { BsFillRocketFill } from 'react-icons/bs'
 
 function format(value: number) {
   return value.toLocaleString()
@@ -449,7 +449,7 @@ export function GameTable({
           {winner ? (
             <div className="victory-panel">
               <span className="winner-icon">
-                <FiAward />
+                <BsFillRocketFill />
               </span>
               <h1>
                 {winner.id === me.id
