@@ -117,6 +117,7 @@ it('keeps Ralph and YOLO visible after more than four cards, with identical rema
     expect(html).toContain('aria-label="Engineering uses no actions"')
     expect(html).toContain('aria-label="Play your entire hand"')
     expect(html.match(/empty-action-space/g)).toHaveLength(2)
+    expect(html).toContain('--play-count:9')
     expect(html).toContain('aria-valuenow=')
     expect(html).not.toContain('action-dots')
     expect(html).not.toContain('LIVE TABLE')
@@ -298,4 +299,41 @@ it('limits Pair Programming choices to the cards actually left in opponents’ h
   expect(html).toContain('Choose up to 2 more cards')
   expect(html).toContain('Finish</button>')
   expect(html.match(/aria-label="Take /g)).toHaveLength(2)
+})
+
+it('keeps an empty discard space, then shows only the latest completed turn for every viewer', () => {
+  const state = started()
+  expect(render(state, 'a')).toContain('aria-label="Discard pile, empty"')
+  state.players[0].hand = [{ instanceId: 'c100', definitionId: 'bug' }]
+  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'c100' })
+  expect(render(state, 'a')).toContain('aria-label="Discard pile, empty"')
+  resolveAction(state, 'a', { type: 'end-turn' })
+  for (const userId of ['a', 'b']) {
+    const html = render(state, userId)
+    expect(html).toContain(`aria-label="Previous turn: ${CARDS.bug.name}"`)
+    expect(html.match(/class="discard-card played-card"/g)).toHaveLength(1)
+  }
+  state.players[1].hand = [{ instanceId: 'c101', definitionId: 'backend' }]
+  state.players[1].credits = 0
+  resolveAction(state, 'b', { type: 'discard', cardInstanceId: 'c101' })
+  resolveAction(state, 'b', { type: 'end-turn' })
+  const html = render(state, 'a')
+  expect(html).toContain(`aria-label="Previous turn: ${CARDS.backend.name}"`)
+  expect(html.match(/class="discard-card played-card"/g)).toHaveLength(1)
+  const pile = html.slice(
+    html.indexOf('class="discard-pile"'),
+    html.indexOf('class="played-cards"'),
+  )
+  expect(pile).toContain('card-unavailable')
+  expect(pile).toContain('tabindex="0"')
+})
+
+it('keeps a single played card in one fixed track when no actions remain', () => {
+  const state = started()
+  state.players[0].hand = [{ instanceId: 'only', definitionId: 'bug' }]
+  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'only' })
+  state.players[0].actionsUsed = state.players[0].actionLimit
+  expect(render(state, 'a')).toContain(
+    '--play-count:1;grid-template-columns:var(--played-card-width)',
+  )
 })

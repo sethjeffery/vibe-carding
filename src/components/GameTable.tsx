@@ -1,4 +1,11 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react'
 import {
   FiActivity,
   FiArrowRight,
@@ -146,6 +153,9 @@ export function GameTable({
   }, [game.activePlayerId])
   const handRef = useRef<HTMLDivElement>(null)
   const playedRef = useRef<HTMLDivElement>(null)
+  const discardRef = useRef<HTMLDivElement>(null)
+  const previousTurn = useRef(game.turn)
+  const previousDiscard = useRef<HTMLElement | null>(null)
   const cardPositions = useRef(
     new Map<
       HTMLElement,
@@ -154,6 +164,8 @@ export function GameTable({
         top: number
         width: number
         height: number
+        viewportLeft: number
+        viewportTop: number
         animation?: Animation
       }
     >(),
@@ -182,14 +194,54 @@ export function GameTable({
           top: card.offsetTop,
           width: card.offsetWidth,
           height: card.offsetHeight,
+          viewportLeft: card.getBoundingClientRect().left,
+          viewportTop: card.getBoundingClientRect().top,
           animation,
         })
       }
     }
+    const pile = discardRef.current
+    const pileSnapshot = pile?.cloneNode(true) as HTMLElement | undefined
+    pileSnapshot?.querySelector('[data-discard-overlay]')?.remove()
+    for (const card of Array.from(
+      pileSnapshot?.children ?? [],
+    ) as HTMLElement[])
+      card.style.visibility = ''
+    const landingCards = Array.from(pile?.children ?? []).filter(
+      (card) => !card.hasAttribute('data-discard-overlay'),
+    ) as HTMLElement[]
+    let flights = 0
+    let oldPile: HTMLElement | null = null
     for (const [card, previous] of cardPositions.current) {
       if (next.has(card)) continue
       previous.animation?.cancel()
       if (!reducedMotion && card.matches('.played-card') && playedRef.current) {
+        const destination =
+          previousTurn.current !== game.turn
+            ? discardRef.current?.getBoundingClientRect()
+            : undefined
+        if (destination) {
+          if (flights === 0 && pile) {
+            for (const landing of landingCards)
+              landing.style.visibility = 'hidden'
+            oldPile = previousDiscard.current
+            if (oldPile) {
+              oldPile.setAttribute('data-discard-overlay', '')
+              oldPile.setAttribute('aria-hidden', 'true')
+              oldPile.inert = true
+              Object.assign(oldPile.style, {
+                position: 'absolute',
+                inset: '0',
+                width: '100%',
+                height: '100%',
+                border: '0',
+                pointerEvents: 'none',
+              })
+              pile.append(oldPile)
+            }
+          }
+          flights++
+        }
         const leaving = card.cloneNode(true) as HTMLElement
         leaving.classList.add('board-leaving')
         leaving.setAttribute('aria-hidden', 'true')
@@ -200,40 +252,47 @@ export function GameTable({
           width: `${previous.width}px`,
           height: `${previous.height}px`,
         })
-        playedRef.current.append(leaving)
+        if (destination)
+          Object.assign(leaving.style, {
+            position: 'fixed',
+            left: `${previous.viewportLeft}px`,
+            top: `${previous.viewportTop}px`,
+            margin: '0',
+            transformOrigin: 'top left',
+          })
+        const flightContainer = destination
+          ? playedRef.current.closest('.play-surface')!
+          : playedRef.current
+        flightContainer.append(leaving)
         leaving.animate(
           [
             { opacity: 1, transform: 'translateY(0)' },
-            { opacity: 0, transform: 'translateY(30px) scale(.96)' },
+            destination
+              ? {
+                  opacity: 1,
+                  transform: `translate(${destination.left - previous.viewportLeft}px, ${destination.top - previous.viewportTop}px) scale(${destination.width / previous.width}, ${destination.height / previous.height})`,
+                }
+              : { opacity: 0, transform: 'translateY(30px) scale(.96)' },
           ],
-          { duration: 160, easing: 'ease-in', fill: 'forwards' },
-        ).onfinish = () => leaving.remove()
+          {
+            duration: destination ? 260 : 160,
+            delay: destination ? (flights - 1) * 35 : 0,
+            easing: 'ease-in-out',
+            fill: 'both',
+          },
+        ).onfinish = () => {
+          if (destination && --flights === 0) {
+            for (const landing of landingCards) landing.style.visibility = ''
+            oldPile?.remove()
+          }
+          leaving.remove()
+        }
       }
     }
+    previousDiscard.current = pileSnapshot ?? null
     cardPositions.current = next
-  }, [me.hand, game.events, remaining])
-  useEffect(() => {
-    const row = playedRef.current
-    if (!row) return
-    const cards = row.querySelectorAll<HTMLElement>(
-      '.played-card:not(.board-leaving)',
-    )
-    const card = cards.item(cards.length - 1)
-    const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches
-      ? 'instant'
-      : 'smooth'
-    if (!card) row.scrollTo({ left: 0, behavior: 'instant' })
-    else if (
-      card.offsetLeft + card.offsetWidth >
-      row.scrollLeft + row.clientWidth - 12
-    )
-      row.scrollTo({
-        left: card.offsetLeft + card.offsetWidth - row.clientWidth + 12,
-        behavior,
-      })
-    else if (card.offsetLeft < row.scrollLeft + 12)
-      row.scrollTo({ left: card.offsetLeft - 12, behavior })
-  }, [game.turn, game.undoCardInstanceId])
+    previousTurn.current = game.turn
+  }, [me.hand, game.events, remaining, game.turn])
   const [motion, setMotion] = useState({
     revision: game.revision,
     hand: me.hand,
@@ -279,6 +338,13 @@ export function GameTable({
       (event) =>
         event.cardId && !event.stolenFromId && event.turn === game.turn,
     )
+    .reverse()
+
+  const previousPlays = game.events.filter(
+    (event) => event.cardId && !event.stolenFromId && event.turn < game.turn,
+  )
+  const discardPlays = previousPlays
+    .filter((event) => event.turn === previousPlays[0]?.turn)
     .reverse()
 
   return (
@@ -400,16 +466,63 @@ export function GameTable({
             </div>
           ) : (
             <div className="play-surface">
-              <div
-                className="deck-stack"
-                aria-label={`${game.deckCount} cards left in the deck`}
-              >
-                <FiLayers aria-hidden="true" />
-                <strong>{game.deckCount}</strong>
-                <span>cards left</span>
+              <div className="card-piles">
+                <div
+                  className="deck-stack"
+                  aria-label={`${game.deckCount} cards left in the deck`}
+                >
+                  <FiLayers aria-hidden="true" />
+                  <strong>{game.deckCount}</strong>
+                  <span>cards left</span>
+                </div>
+                <div
+                  className="discard-pile"
+                  ref={discardRef}
+                  role="group"
+                  tabIndex={0}
+                  aria-label={
+                    discardPlays.length
+                      ? `Previous turn: ${discardPlays.map((event) => CARDS[event.cardId!].name).join(', ')}`
+                      : 'Discard pile, empty'
+                  }
+                >
+                  {discardPlays.map((event, index) => (
+                    <div
+                      className="discard-card played-card"
+                      key={event.cardInstanceId ?? event.id}
+                      style={
+                        {
+                          '--discard-index': index,
+                          '--discard-count': discardPlays.length,
+                        } as CSSProperties
+                      }
+                    >
+                      <Card
+                        card={CARDS[event.cardId!]}
+                        compact
+                        discarded={
+                          event.discarded ??
+                          event.text.endsWith(
+                            ` binned ${CARDS[event.cardId!].name}.`,
+                          )
+                        }
+                        economics={event.economics}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
               <div
                 className="played-cards"
+                style={
+                  {
+                    '--play-count': turnPlays.length + remaining,
+                    gridTemplateColumns:
+                      turnPlays.length + remaining <= 1
+                        ? 'var(--played-card-width)'
+                        : undefined,
+                  } as CSSProperties
+                }
                 ref={playedRef}
                 role="group"
                 aria-label={`Cards played this turn, ${remaining} normal actions remaining`}

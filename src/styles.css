@@ -1110,7 +1110,7 @@ input::placeholder {
 .play-surface {
   position: relative;
   flex-direction: column;
-  --deck-gutter: 66px;
+  --deck-gutter: calc(var(--played-card-width) / 2 + 24px);
   padding-left: var(--deck-gutter);
   padding-right: var(--deck-gutter);
   --played-card-width: clamp(110px, 10vw, 145px);
@@ -1151,25 +1151,28 @@ input::placeholder {
 }
 .played-cards {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns:
+    repeat(
+      calc(var(--play-count) - 1),
+      minmax(0, calc(var(--played-card-width) + 12px))
+    )
+    var(--played-card-width);
+  grid-template-rows: minmax(0, 1fr);
   align-items: center;
-  justify-content: safe center;
-  gap: 12px;
+  justify-content: center;
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow: auto;
   padding: 8px 12px 14px;
-  scrollbar-width: thin;
-  scrollbar-color: #596e3c transparent;
 }
+.played-cards > .action-space {
+  width: var(--played-card-width);
+}
+
 .played-card {
   position: relative;
   animation: board-arrival 0.18s ease-out;
-}
-.played-card:hover,
-.played-card:focus-within {
-  z-index: 1;
 }
 .played-card .game-card {
   width: var(--played-card-width);
@@ -1178,6 +1181,9 @@ input::placeholder {
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 7px 16px #0007;
+}
+.discard-card .game-card {
+  box-shadow: 0 4px 4px #0006;
 }
 .played-card .card-top {
   font-size: 8px;
@@ -1954,11 +1960,10 @@ input::placeholder {
 }
 
 .deck-stack {
-  position: absolute;
-  left: 10px;
-  top: 45%;
-  width: 46px;
-  height: 72px;
+  position: relative;
+  width: 100%;
+  height: min(45%, 110px);
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1968,10 +1973,10 @@ input::placeholder {
   border-radius: 6px;
   background: #20291d;
   box-shadow:
-    -3px -3px #161d14,
-    -4px -4px #70865b,
-    -7px -7px #161d14,
-    -8px -8px #70865b;
+    0 2px #161d14,
+    0 3px #70865b,
+    0 5px #161d14,
+    0 6px #70865b;
 }
 .deck-stack strong {
   font-size: 20px;
@@ -2087,13 +2092,8 @@ input::placeholder {
 }
 @media (max-width: 640px) {
   .play-surface {
-    --deck-gutter: 48px;
+    --deck-gutter: calc(var(--played-card-width) / 2 + 20px);
     padding-left: var(--deck-gutter);
-  }
-  .deck-stack {
-    left: 6px;
-    width: 32px;
-    height: 54px;
   }
   .deck-stack strong {
     font-size: 16px;
@@ -2127,7 +2127,7 @@ input::placeholder {
   position: absolute;
   pointer-events: none;
   animation: none;
-  z-index: 2;
+  z-index: 4;
 }
 @media (prefers-reduced-motion: reduce) {
   .played-card {
@@ -2153,4 +2153,49 @@ input::placeholder {
 .pair-card-flight .game-card {
   height: 100%;
   aspect-ratio: auto;
+}
+
+.card-piles {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  bottom: 60px;
+  width: calc(var(--played-card-width) / 2);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  z-index: 3;
+}
+.discard-pile {
+  position: relative;
+  width: 100%;
+  height: min(45%, 110px);
+  flex-shrink: 0;
+  border: 1px dotted #a4c77177;
+  border-radius: 5px;
+}
+.discard-pile:focus-visible {
+  outline: 2px solid #d3fc53;
+  outline-offset: 4px;
+}
+.discard-card.played-card {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: var(--played-card-width);
+  height: 200%;
+  min-height: 0;
+  transform-origin: top left;
+  transform: scale(0.5)
+    translateY(calc((var(--discard-count) - 1 - var(--discard-index)) * 2px));
+  transition: transform 0.25s ease;
+  animation: none;
+}
+.discard-pile:hover .discard-card,
+.discard-pile:focus-within .discard-card {
+  transform: scale(0.5)
+    translate(
+      calc(var(--discard-index) * min(90px, 60vw / var(--discard-count))),
+      calc(var(--discard-index) * -8px)
+    );
 }
