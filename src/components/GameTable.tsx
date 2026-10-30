@@ -29,11 +29,13 @@ function format(value: number) {
 function PlayerTile({
   player,
   active,
+  winner,
   me,
   target,
 }: {
   player: PlayerView
   active: boolean
+  winner: boolean
   me: boolean
   target: number
 }) {
@@ -50,7 +52,7 @@ function PlayerTile({
   )
   return (
     <div
-      className={`player-tile seat-${player.seat} ${active ? 'player-active' : ''}`}
+      className={`player-tile seat-${player.seat} ${active ? 'player-active' : ''} ${winner ? 'player-winner' : ''}`}
     >
       <div className="player-tile-top">
         <span className="player-avatar">
@@ -144,12 +146,17 @@ export function GameTable({
 
   return (
     <main className="game-view">
-      <section className="players-row" aria-label="Players" tabIndex={0}>
+      <section
+        className={`players-row ${winner ? 'players-celebrating' : ''}`}
+        aria-label="Players"
+        tabIndex={0}
+      >
         {game.players.map((player) => (
           <PlayerTile
             key={player.id}
             player={player}
             active={active?.id === player.id}
+            winner={winner?.id === player.id}
             me={player.id === me.id}
             target={game.victoryTarget}
           />
@@ -163,7 +170,7 @@ export function GameTable({
           <div className="table-topline">
             <span className="turn-announcement">
               {winner
-                ? 'Sprint complete.'
+                ? null
                 : isTurn
                   ? 'Your move.'
                   : `${active?.name} is cooking.`}

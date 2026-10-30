@@ -32,6 +32,21 @@ function render(state: GameState, userId: string) {
   )
 }
 
+it('celebrates only the winning tile for every viewer', () => {
+  const state = started()
+  expect(render(state, 'a')).not.toContain('player-winner')
+  state.status = 'finished'
+  state.winnerId = state.players[1].id
+  for (const userId of ['a', 'b']) {
+    const html = render(state, userId)
+    const tiles = html.match(/class="player-tile [^"]*"/g)!
+    const winners = tiles.filter((tile) => tile.includes('player-winner'))
+    expect(winners).toHaveLength(1)
+    expect(winners[0]).toContain(`seat-${state.players[1].seat}`)
+    expect(html).toContain('players-celebrating')
+  }
+})
+
 it('renders readable pending sabotage labels and tooltips for current and legacy effects', () => {
   const state = started()
   state.players[0].hand = [{ instanceId: 'freeze', definitionId: 'freeze' }]

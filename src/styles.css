@@ -927,6 +927,33 @@ input::placeholder {
   border-color: color-mix(in srgb, var(--seat-color) 65%, transparent);
   background: color-mix(in srgb, var(--seat-color) 5%, #171a1b);
 }
+.players-celebrating {
+  padding: 16px 6px 10px;
+  margin: -16px -6px -10px;
+}
+.player-winner {
+  border-color: var(--seat-color);
+  transform-origin: center bottom;
+  animation: victory-dance 1.2s ease-in-out infinite;
+}
+@keyframes victory-dance {
+  0%,
+  40%,
+  80%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  20% {
+    transform: translateY(-9px) rotate(-1.5deg);
+  }
+  60% {
+    transform: translateY(-7px) rotate(1.5deg);
+  }
+  32%,
+  72% {
+    transform: translateY(0) scale(1.01, 0.97);
+  }
+}
 .player-tile-top {
   display: flex;
   align-items: center;
@@ -1403,11 +1430,39 @@ input::placeholder {
   flex: 1;
   min-height: 0;
   position: relative;
+  isolation: isolate;
+  text-align: center;
+  padding: 24px 16px;
+  background: radial-gradient(ellipse at center, #d3fc5310, transparent 65%);
   animation: enter 0.4s ease;
+}
+.victory-panel::before,
+.victory-panel::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  width: min(70%, 360px);
+  aspect-ratio: 1;
+  border: 2px solid #d3fc53cc;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 15% 15%, #d3fc53 0 2px, transparent 3px),
+    radial-gradient(circle at 85% 25%, #72deec 0 3px, transparent 4px),
+    radial-gradient(circle at 20% 80%, #b3a0ff 0 3px, transparent 4px),
+    radial-gradient(circle at 90% 75%, #d3fc53 0 2px, transparent 3px);
+  box-shadow:
+    0 0 40px #d3fc5340,
+    inset 0 0 40px #d3fc5330;
+  animation: victory-ripple 2.4s ease-in-out infinite;
+}
+.victory-panel::after {
+  animation-delay: -1.2s;
 }
 .winner-icon {
   font-size: 30px;
   color: #d3fc53;
+  filter: drop-shadow(0 0 12px #d3fc5370);
 }
 .victory-panel h1 {
   font:
@@ -1415,6 +1470,7 @@ input::placeholder {
     sans-serif;
   color: #d3fc53;
   margin: 5px 0;
+  text-shadow: 0 0 28px #d3fc5333;
 }
 .victory-panel p {
   font-size: 12px;
@@ -1424,6 +1480,19 @@ input::placeholder {
 .victory-panel .button-primary {
   min-height: 34px;
   font-size: 12px;
+}
+@keyframes victory-ripple {
+  0% {
+    transform: scale(0.15) rotate(0deg);
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: scale(3.5) rotate(60deg);
+    opacity: 0;
+  }
 }
 .observability-dialog {
   margin: auto;
