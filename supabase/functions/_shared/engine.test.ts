@@ -112,12 +112,12 @@ describe('game rules', () => {
     const me = state.players[0]
     me.hand = [
       { instanceId: 'task-one', definitionId: 'bug' },
-      { instanceId: 'opus', definitionId: 'opus' },
+      { instanceId: 'fable', definitionId: 'fable' },
       { instanceId: 'task-two', definitionId: 'bug' },
       { instanceId: 'fourth', definitionId: 'div' },
     ]
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'task-one' })
-    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'opus' })
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'fable' })
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'task-two' })
     expect(me.tokens).toBe((CARDS.bug.yield ?? 0) * 4)
     expect(() =>
@@ -200,11 +200,11 @@ describe('game rules', () => {
     const state = started()
     const me = state.players[0]
     me.credits = 300
-    me.hand = ['opus', 'max', 'refactor'].map((id) => ({
+    me.hand = ['fable', 'max', 'refactor'].map((id) => ({
       instanceId: id,
       definitionId: id,
     }))
-    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'opus' })
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'fable' })
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'max' })
     expect(() =>
       resolveAction(state, 'a', { type: 'play', cardInstanceId: 'refactor' }),
@@ -257,7 +257,7 @@ describe('game rules', () => {
     const retained = me.hand.slice(0, 5)
     me.hand = [...retained]
     state.drawPile = []
-    state.discardPile = ['bug', 'opus']
+    state.discardPile = ['bug', 'fable']
     resolveAction(state, 'a', { type: 'end-turn' })
     expect(me.hand.slice(0, 5)).toEqual(retained)
     expect(me.hand).toHaveLength(7)
@@ -274,7 +274,7 @@ describe('game rules', () => {
     expect(rival.pending).toEqual([])
     expect(rival.yieldMultiplier).toBe(0.5)
     expect(rival.modelBlocked).toBe(true)
-    expect(canPlay(state, rival, CARDS.opus)).toBe(false)
+    expect(canPlay(state, rival, CARDS.fable)).toBe(false)
     resolveAction(state, 'b', { type: 'end-turn' })
     expect(rival.yieldMultiplier).toBe(1)
     expect(rival.modelBlocked).toBe(false)
@@ -381,7 +381,7 @@ describe('configurable card mechanics', () => {
 
   function custom(effect: import('./engine').CardEffect) {
     CARDS.custom = {
-      ...CARDS.opus,
+      ...CARDS.fable,
       id: 'custom',
       name: 'Any free-text name',
       kind: 'utility',
@@ -495,7 +495,7 @@ describe('configurable card mechanics', () => {
       rival.costMultiplier,
       rival.yieldMultiplier,
     ]).toEqual([100, 2, 0.25])
-    expect(canPlay(state, rival, CARDS.opus)).toBe(false)
+    expect(canPlay(state, rival, CARDS.fable)).toBe(false)
     resolveAction(state, 'b', { type: 'end-turn' })
     resolveAction(state, 'a', { type: 'end-turn' })
     expect([
@@ -503,7 +503,7 @@ describe('configurable card mechanics', () => {
       rival.costMultiplier,
       rival.yieldMultiplier,
     ]).toEqual([300, 1, 1])
-    expect(canPlay(state, rival, CARDS.opus)).toBe(true)
+    expect(canPlay(state, rival, CARDS.fable)).toBe(true)
   })
 
   it('keeps composed cards playable when one component still has an effect', () => {

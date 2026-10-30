@@ -42,7 +42,7 @@ it('plays effect-specific notes, keeps discards neutral, and respects mute', asy
   )
   const { playCardSound, setSound } = await import('./sound')
   for (const id of [
-    'opus',
+    'fable',
     'cache',
     'max',
     'caveman',
@@ -74,6 +74,6 @@ it('plays effect-specific notes, keeps discards neutral, and respects mute', asy
   expect(frequencies).toEqual([260, 520])
   setSound(false)
   frequencies.length = 0
-  playCardSound('opus')
+  playCardSound('fable')
   expect(frequencies).toEqual([])
 })

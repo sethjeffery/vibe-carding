@@ -242,14 +242,14 @@ function App() {
               ALL VIBES. NO QA.
             </span>
             <Card card={CARDS.backend} className="hero-card hero-card-back" />
-            <Card card={CARDS.opus} className="hero-card hero-card-middle" />
+            <Card card={CARDS.fable} className="hero-card hero-card-middle" />
             <Card card={CARDS.yolo} className="hero-card hero-card-front" />
             <div className="floating-code">
               git push --force <span className="cursor">▊</span>
             </div>
             <span className="hero-sticker">
               <FiZap />
-              LGTM*
+              /shipit
             </span>
           </section>
           <footer className="home-footer">
