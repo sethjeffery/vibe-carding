@@ -8,7 +8,14 @@ export type ClientRequest =
   | ({ op: 'state' } & Room)
   | ({ op: 'start'; target: number; expectedRevision: number } & Room &
       Mutation)
-  | ({ op: 'action'; action: GameAction; expectedRevision: number } & Room &
+  | ({ op: 'ai-seat'; playerId?: string; expectedRevision: number } & Room &
+      Mutation)
+  | ({
+      op: 'action'
+      action: GameAction
+      aiPlayerId?: string
+      expectedRevision: number
+    } & Room &
       Mutation)
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -25,7 +32,11 @@ export function parseRequest(raw: string): ClientRequest {
   }
   if (!record(body)) throw new Error('Invalid request.')
   const op = body.op
-  if (!['create', 'join', 'state', 'start', 'action'].includes(String(op)))
+  if (
+    !['create', 'join', 'state', 'start', 'action', 'ai-seat'].includes(
+      String(op),
+    )
+  )
     throw new Error('Unknown operation.')
   if (
     op !== 'state' &&
@@ -62,13 +73,31 @@ export function parseRequest(raw: string): ClientRequest {
   )
     throw new Error('Invalid game revision.')
   const expectedRevision = body.expectedRevision
+  const aiId = op === 'ai-seat' ? body.playerId : body.aiPlayerId
+  if (aiId !== undefined && (typeof aiId !== 'string' || !/^ai-\d$/.test(aiId)))
+    throw new Error('Invalid AI player.')
+  if (op === 'ai-seat')
+    return {
+      op,
+      code,
+      requestId,
+      expectedRevision,
+      ...(aiId === undefined ? {} : { playerId: aiId as string }),
+    }
   if (op === 'start') {
     if (
-      typeof body.target !== 'number' ||
-      ![3000, 5000, 10000].includes(body.target)
+      body.target !== undefined &&
+      (typeof body.target !== 'number' ||
+        ![3000, 5000, 10000].includes(body.target))
     )
       throw new Error('Choose a valid token target.')
-    return { op, code, requestId, expectedRevision, target: body.target }
+    return {
+      op,
+      code,
+      requestId,
+      expectedRevision,
+      target: (body.target as number) ?? 10000,
+    }
   }
   if (!record(body.action)) throw new Error('Invalid action.')
   const action = body.action
@@ -78,6 +107,7 @@ export function parseRequest(raw: string): ClientRequest {
       code,
       requestId,
       expectedRevision,
+      ...(aiId === undefined ? {} : { aiPlayerId: aiId as string }),
       action: { type: 'end-turn' },
     }
   if (
@@ -91,6 +121,7 @@ export function parseRequest(raw: string): ClientRequest {
     code,
     requestId,
     expectedRevision,
+    ...(aiId === undefined ? {} : { aiPlayerId: aiId as string }),
     action: { type: action.type, cardInstanceId: action.cardInstanceId },
   }
 }

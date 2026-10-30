@@ -1,9 +1,10 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.118.0'
 import {
   createGame,
+  changeAISeat,
   joinGame,
   projectGame,
-  resolveAction,
+  resolveClientAction,
   startGame,
   type GameState,
 } from '../_shared/engine.ts'
@@ -131,8 +132,10 @@ Deno.serve(async (request) => {
             409,
           )
         if (body.op === 'start') startGame(state, user.id, body.target)
+        else if (body.op === 'ai-seat')
+          changeAISeat(state, user.id, body.playerId)
         else {
-          resolveAction(state, user.id, body.action)
+          resolveClientAction(state, user.id, body.action, body.aiPlayerId)
         }
       }
     }

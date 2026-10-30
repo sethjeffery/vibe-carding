@@ -7,6 +7,7 @@ import {
   type GameResponse,
 } from '../lib/api'
 import { playCardSound, playSound } from '../lib/sound'
+import { chooseAIAction } from '../lib/ai'
 
 export function useGame() {
   const initialCode =
@@ -15,7 +16,6 @@ export function useGame() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [restoring, setRestoring] = useState(Boolean(initialCode))
-  const [connected, setConnected] = useState(false)
   const roomRef = useRef<GameResponse | null>(null)
   const lock = useRef(false)
   const mounted = useRef(true)
@@ -85,11 +85,8 @@ export function useGame() {
   const code = room?.code
   useEffect(() => {
     if (!gameId || !meId || !code || !supabase) return
-    let live = true
     const sync = () => {
-      void refresh(code).catch(() => {
-        if (live) setConnected(false)
-      })
+      void refresh(code).catch(() => undefined)
     }
     const channel = supabase
       .channel(`game:${gameId}:${meId}`)
@@ -104,7 +101,6 @@ export function useGame() {
         sync,
       )
       .subscribe((status) => {
-        if (live) setConnected(status === 'SUBSCRIBED')
         if (status === 'SUBSCRIBED') sync()
       })
     const interval = window.setInterval(sync, 15_000)
@@ -114,7 +110,6 @@ export function useGame() {
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
-      live = false
       void supabase!.removeChannel(channel)
       clearInterval(interval)
       window.removeEventListener('online', sync)
@@ -149,6 +144,28 @@ export function useGame() {
     [accept, refresh],
   )
 
+  useEffect(() => {
+    if (
+      !room ||
+      busy ||
+      room.game.meId !== room.game.hostId ||
+      !room.game.aiHand
+    )
+      return
+    const timer = window.setTimeout(() => {
+      const action = chooseAIAction(room.game)
+      if (action)
+        void send({
+          op: 'action',
+          code: room.code,
+          expectedRevision: room.game.revision,
+          aiPlayerId: room.game.activePlayerId,
+          action,
+        })
+    }, 750)
+    return () => window.clearTimeout(timer)
+  }, [room, busy, send])
+
   function leave() {
     generation.current++
     roomRef.current = null
@@ -161,7 +178,6 @@ export function useGame() {
     error,
     busy,
     restoring,
-    connected,
     initialCode,
     send,
     leave,

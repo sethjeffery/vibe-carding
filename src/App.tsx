@@ -15,7 +15,7 @@ import {
   FiX,
   FiZap,
 } from 'react-icons/fi'
-import { CARDS } from '../supabase/functions/_shared/engine'
+import { CARDS, MAX_PLAYERS } from '../supabase/functions/_shared/engine'
 import { Card } from './components/Card'
 import { GameTable } from './components/GameTable'
 import { Rules } from './components/Rules'
@@ -23,17 +23,8 @@ import { useGame } from './hooks/useGame'
 import { isSoundEnabled, playSound, setSound } from './lib/sound'
 
 function App() {
-  const {
-    room,
-    error,
-    busy,
-    restoring,
-    connected,
-    initialCode,
-    send,
-    leave,
-    clearError,
-  } = useGame()
+  const { room, error, busy, restoring, initialCode, send, leave, clearError } =
+    useGame()
   const [name, setName] = useState(
     () => localStorage.getItem('vibe-name') ?? '',
   )
@@ -42,7 +33,6 @@ function App() {
   const [rules, setRules] = useState(false)
   const [sound, updateSound] = useState(isSoundEnabled)
   const [copied, setCopied] = useState(false)
-  const [target, setTarget] = useState(10000)
 
   function saveName(value: string) {
     setName(value)
@@ -145,7 +135,7 @@ function App() {
           <section className="hero-copy">
             <div className="hero-tag">
               <FiUsers />
-              2–4 PLAYERS
+              2–6 PLAYERS
               <span />
               ZERO CODE REVIEWS
             </div>
@@ -157,7 +147,7 @@ function App() {
             <p className="hero-description">
               Play your cards right.
               <br />
-              First player to burn {target.toLocaleString()} tokens wins.
+              First player to burn 10,000 tokens wins.
             </p>
             <form
               className="entry-form"
@@ -282,7 +272,7 @@ function App() {
               <br />
               <span className="text-lime">players.</span>
             </h1>
-            <p>Or just invite whoever’s online.</p>
+            <p>Invite your friends or fill the table with AI rivals.</p>
           </div>
           <section className="lobby-panel">
             <div className="invite-row">
@@ -299,7 +289,7 @@ function App() {
               </button>
             </div>
             <div className="lobby-seats">
-              {Array.from({ length: 4 }, (_, seat) => {
+              {Array.from({ length: MAX_PLAYERS }, (_, seat) => {
                 const player = room.game.players[seat]
                 return (
                   <div
@@ -319,33 +309,40 @@ function App() {
                         {player
                           ? player.id === room.game.hostId
                             ? 'HOST'
-                            : 'READY TO SHIP'
+                            : player.isAI
+                              ? 'AI PLAYER'
+                              : 'READY TO SHIP'
                           : 'WAITING FOR A RIVAL'}
                       </small>
                     </div>
-                    {player ? <FiCheck className="text-lime ml-auto" /> : null}
+                    {room.game.meId === room.game.hostId &&
+                    (player?.isAI || seat === room.game.players.length) ? (
+                      <button
+                        className="seat-control ml-auto"
+                        disabled={busy}
+                        aria-label={
+                          player
+                            ? `Remove ${player.name}`
+                            : `Add AI to seat ${seat + 1}`
+                        }
+                        onClick={() =>
+                          void send({
+                            op: 'ai-seat',
+                            code: room.code,
+                            expectedRevision: room.game.revision,
+                            playerId: player?.id,
+                          })
+                        }
+                      >
+                        {player ? <FiX /> : <FiPlus />}
+                        {player ? 'Empty seat' : 'Add AI'}
+                      </button>
+                    ) : player ? (
+                      <FiCheck className="text-lime ml-auto" />
+                    ) : null}
                   </div>
                 )
               })}
-            </div>
-            <div className="lobby-settings">
-              <label htmlFor="target">TOKEN TARGET</label>
-              {room.game.meId === room.game.hostId ? (
-                <select
-                  id="target"
-                  value={target}
-                  disabled={room.game.meId !== room.game.hostId}
-                  onChange={(event) => setTarget(Number(event.target.value))}
-                >
-                  <option value={3000}>3,000 · Quick sprint</option>
-                  <option value={5000}>5,000 · Regular sprint</option>
-                  <option value={10000}>10,000 · Spec edition</option>
-                </select>
-              ) : (
-                <span className="text-xs text-zinc-400">
-                  Chosen by the host
-                </span>
-              )}
             </div>
             {room.game.hostId === room.game.meId ? (
               <button
@@ -356,7 +353,6 @@ function App() {
                     op: 'start',
                     code: room.code,
                     expectedRevision: room.game.revision,
-                    target,
                   })
                 }
               >
@@ -372,14 +368,10 @@ function App() {
             )}
             <p className="lobby-note">
               {room.game.players.length < 2
-                ? 'Invite at least one rival to get started.'
-                : `${room.game.players.length} players connected. Let’s make something worse.`}
+                ? 'Invite a rival or add an AI to get started.'
+                : `${room.game.players.length} players ready. Let’s make something worse.`}
             </p>
           </section>
-          <div className="lobby-connection">
-            <span className={`status-dot ${connected ? '' : 'status-amber'}`} />
-            {connected ? 'LIVE CONNECTION' : 'CONNECTING…'}
-          </div>
         </main>
       ) : (
         <GameTable

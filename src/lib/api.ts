@@ -14,12 +14,14 @@ export interface GameResponse {
   game: GameView
 }
 export interface GameRequest {
-  op: 'create' | 'join' | 'state' | 'start' | 'action'
+  op: 'create' | 'join' | 'state' | 'start' | 'action' | 'ai-seat'
   code?: string
   name?: string
   target?: number
   expectedRevision?: number
   action?: GameAction
+  playerId?: string
+  aiPlayerId?: string
 }
 export class GameError extends Error {
   constructor(

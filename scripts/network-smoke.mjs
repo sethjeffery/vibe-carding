@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { createClient } from '@supabase/supabase-js'
+import { DECK_COUNTS } from '../supabase/functions/_shared/cards.ts'
 
 const url = process.env.VITE_SUPABASE_URL
 const key = process.env.VITE_SUPABASE_PUBLISHABLE_KEY
 assert(url && key, 'Load .env.local before running this live Supabase test.')
 
 const sessions = []
-for (let seat = 0; seat < 4; seat++) {
+for (let seat = 0; seat < 6; seat++) {
   const client = createClient(url, key, { auth: { persistSession: false } })
   const { data, error } = await client.auth.signInAnonymously()
   assert.ifError(error)
@@ -32,7 +33,7 @@ const created = await invoke(0, { op: 'create', name: 'Smoke Alpha' })
 assert.equal(created.game.players[0].credits, 1000)
 const { code } = created
 await Promise.all(
-  [1, 2, 3].map(async (seat) => {
+  [1, 2, 3, 4, 5].map(async (seat) => {
     for (let attempt = 0; attempt < 4; attempt++) {
       const response = await fetch(`${url}/functions/v1/game`, {
         method: 'POST',
@@ -56,7 +57,7 @@ await Promise.all(
   }),
 )
 let snapshot = await invoke(0, { op: 'state', code })
-assert.equal(snapshot.game.players.length, 4)
+assert.equal(snapshot.game.players.length, 6)
 snapshot = await invoke(0, {
   op: 'start',
   code,
@@ -64,7 +65,10 @@ snapshot = await invoke(0, {
   expectedRevision: snapshot.game.revision,
 })
 assert(snapshot.game.players.every((player) => player.credits === 1000))
-assert.equal(snapshot.game.deckCount + 4 * 7, 67)
+assert.equal(
+  snapshot.game.deckCount + 6 * 7,
+  Object.values(DECK_COUNTS).reduce((sum, count) => sum + count, 0),
+)
 assert.equal(snapshot.game.players[0].hand.length, 7)
 assert(snapshot.game.players.slice(1).every((p) => p.hand === null))
 for (const forbidden of ['drawPile', 'discardPile', 'rng'])
@@ -112,7 +116,7 @@ assert.equal(notifications[0].user_id, sessions[0].user.id)
 console.info(
   JSON.stringify({
     gameCode: code,
-    players: 4,
+    players: 6,
     checks: [
       'concurrent joins',
       'hidden hands',

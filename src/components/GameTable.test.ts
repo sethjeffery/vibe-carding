@@ -2,6 +2,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import {
+  CARDS,
   createGame,
   joinGame,
   projectGame,
@@ -40,14 +41,15 @@ it('renders readable pending sabotage labels and tooltips for current and legacy
     'freeze',
     'outage',
     'caveman',
+    { skipTurn: true },
   )
   for (const userId of ['a', 'b']) {
     const html = render(state, userId)
     expect(html).toContain(
-      'title="Next turn: Budget Freeze, API Outage, Budget Freeze, API Outage, Caveman"',
+      'title="Next turn: Budget Freeze, API Outage, Budget Freeze, API Outage, Caveman, Rate Limited"',
     )
     expect(html).toContain(
-      '! Budget Freeze · API Outage · Budget Freeze · API Outage · Caveman</span>',
+      '! Budget Freeze · API Outage · Budget Freeze · API Outage · Caveman · Rate Limited</span>',
     )
     expect(html).not.toContain('[object Object]')
   }
@@ -67,7 +69,7 @@ it('keeps Ralph and YOLO visible after more than four cards, with identical rema
     expect(html.match(/class="played-card action-space/g)).toHaveLength(7)
     expect(html).toContain('data-card-id="yolo"')
     expect(html).toContain('data-card-id="ralph"')
-    expect(html).toContain('aria-label="Free engineering actions"')
+    expect(html).toContain('aria-label="Engineering uses no actions"')
     expect(html).toContain('aria-label="Play your entire hand"')
     expect(html.match(/empty-action-space/g)).toHaveLength(2)
     expect(html).toContain('aria-valuenow=')
@@ -88,9 +90,10 @@ it('renders discarded cards grey in both players’ play area, including legacy 
     if (legacy) delete state.events[0].discarded
     for (const userId of ['a', 'b']) {
       const html = render(state, userId)
+      const label = `aria-label="Discarded ${CARDS.backend.name}"`
       const discarded = html.slice(
-        html.indexOf('aria-label="Discarded Rewrite Backend"'),
-        html.indexOf('aria-label="Discarded Rewrite Backend"') + 300,
+        html.indexOf(label),
+        html.indexOf(label) + 300,
       )
       expect(discarded).toContain('card-unavailable')
     }
@@ -111,7 +114,7 @@ it('shows visible text for every active effect alongside its icon', () => {
     'Credit cost ×2',
     'Token yield ×3',
     'Models blocked',
-    'Free engineering actions',
+    'Engineering uses no actions',
     'Play your entire hand',
   ]) {
     expect(html).toContain(`</svg> ${label}</span>`)
@@ -126,7 +129,29 @@ it('disables engineering plays when their configured slot cost exceeds the remai
     hand: [{ instanceId: 'task', definitionId: 'bug' }],
   })
   const html = render(state, 'a')
-  expect(html).toMatch(/disabled=""[^>]*aria-label="Play Fix a Bug"/)
+  expect(html).toContain(`disabled="" aria-label="Play ${CARDS.bug.name}"`)
+})
+
+it('allows grey unaffordable engineering cards under YOLO even without actions remaining', () => {
+  const state = started()
+  const me = state.players[0]
+  me.credits = 70
+  me.hand = ['yolo', 'roll-forward', 'accessibility-audit'].map((id) => ({
+    instanceId: id,
+    definitionId: id,
+  }))
+  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'yolo' })
+  me.actionsUsed = me.actionLimit
+  const html = render(state, 'a')
+  expect(html).toContain(CARDS.yolo.copy)
+  expect(html).toContain('Engineering uses no actions')
+  expect(html.match(/card-unavailable/g)).toHaveLength(2)
+  for (const id of ['roll-forward', 'accessibility-audit']) {
+    expect(html).toContain(`aria-label="Discard ${CARDS[id].name}, bonus play"`)
+    expect(html).not.toContain(
+      `disabled="" aria-label="Discard ${CARDS[id].name}, bonus play"`,
+    )
+  }
 })
 
 it('shows every observed opponent hand in the reveal dialog', () => {

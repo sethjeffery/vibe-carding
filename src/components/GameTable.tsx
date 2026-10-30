@@ -40,11 +40,13 @@ function PlayerTile({
   const pendingLabels = player.pending.map((effect) =>
     typeof effect === 'string'
       ? CARDS[effect].name
-      : effect.disableCredits
-        ? 'Budget Freeze'
-        : effect.disableModels
-          ? 'API Outage'
-          : 'Next-turn effect',
+      : effect.skipTurn
+        ? 'Rate Limited'
+        : effect.disableCredits
+          ? 'Budget Freeze'
+          : effect.disableModels
+            ? 'API Outage'
+            : 'Next-turn effect',
   )
   return (
     <div
@@ -56,8 +58,10 @@ function PlayerTile({
         </span>
         <div className="min-w-0">
           <h2>
-            {player.name}
-            {me ? <small>YOU</small> : null}
+            <span className="player-name" title={player.name}>
+              {player.name}
+            </span>
+            {me ? <small>YOU</small> : player.isAI ? <small>AI</small> : null}
           </h2>
           <div className="player-resources">
             <span>
@@ -140,7 +144,7 @@ export function GameTable({
 
   return (
     <main className="game-view">
-      <section className="players-row" aria-label="Players">
+      <section className="players-row" aria-label="Players" tabIndex={0}>
         {game.players.map((player) => (
           <PlayerTile
             key={player.id}
@@ -194,10 +198,10 @@ export function GameTable({
               ) : null}
               {active?.unlimitedEngineering ? (
                 <span
-                  title="Free engineering actions"
-                  aria-label="Free engineering actions"
+                  title="Engineering uses no actions"
+                  aria-label="Engineering uses no actions"
                 >
-                  <FiFastForward /> Free engineering actions
+                  <FiFastForward /> Engineering uses no actions
                 </span>
               ) : null}
               {active?.mustEmptyHand ? (
@@ -346,7 +350,7 @@ export function GameTable({
           {me.hand?.map((instance) => {
             const playable = canPlay(game, me, instance.card)
             const slotCost =
-              playable && instance.card.kind === 'engineering'
+              instance.card.kind === 'engineering'
                 ? (me.engineeringCardsSlotCost ??
                   (me.unlimitedEngineering ? 0 : 1))
                 : 1

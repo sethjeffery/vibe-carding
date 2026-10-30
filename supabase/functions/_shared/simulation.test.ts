@@ -54,11 +54,10 @@ function choose(state: GameState) {
       return { instance, playable, rank }
     })
     .filter(
-      ({ instance, playable }) =>
+      ({ instance }) =>
         player.mustEmptyHand ||
         remaining > 0 ||
-        (playable &&
-          player.unlimitedEngineering &&
+        (player.unlimitedEngineering &&
           CARDS[instance.definitionId].kind === 'engineering'),
     )
   ranked.sort((a, b) => b.rank - a.rank)

@@ -18,6 +18,67 @@ function started() {
 }
 
 describe('game rules', () => {
+  it.each([2, 3, 6])(
+    'skips exactly one turn with %i players, including seat wraparound',
+    (count) => {
+      const state = createGame('a', 'Alpha', 42)
+      for (let i = 1; i < count; i++) joinGame(state, `p${i}`, `Player ${i}`)
+      startGame(state, 'a')
+      const caster = state.players[count - 1]
+      state.activePlayerId = caster.id
+      const target = state.players[0]
+      target.credits = 100
+      const hand = structuredClone(target.hand)
+      caster.hand = [{ instanceId: 'limit', definitionId: 'rate-limited' }]
+      resolveAction(state, caster.id, { type: 'play', cardInstanceId: 'limit' })
+      expect(caster.actionsUsed).toBe(1)
+      expect(canPlay(state, caster, CARDS['rate-limited'])).toBe(false)
+      expect(state.activePlayerId).toBe(caster.id)
+      expect(projectGame(state, target.id).players[0].pending).toEqual([
+        { skipTurn: true },
+      ])
+      resolveAction(state, caster.id, { type: 'end-turn' })
+      expect(state.activePlayerId).toBe(state.players[1].id)
+      expect(state.turn).toBe(3)
+      expect(target.credits).toBe(100)
+      expect(target.hand).toEqual(hand)
+      expect(target.pending).toEqual([])
+      expect(
+        state.events.some((event) =>
+          event.text.includes('Alpha is rate limited'),
+        ),
+      ).toBe(true)
+      for (let i = 1; i < count; i++)
+        resolveAction(state, state.players[i].id, { type: 'end-turn' })
+      expect(state.activePlayerId).toBe(target.id)
+      expect(target.credits).toBe(300)
+    },
+  )
+
+  it('preserves other queued effects until the skipped player actually takes a turn', () => {
+    const state = started()
+    const rival = state.players[1]
+    rival.credits = 100
+    rival.pending = [
+      { skipTurn: true, disableModels: true },
+      { disableCredits: true },
+    ]
+    resolveAction(state, 'a', { type: 'end-turn' })
+    expect(state.activePlayerId).toBe('a')
+    expect(rival.pending).toEqual([
+      { disableModels: true },
+      { disableCredits: true },
+    ])
+    expect(rival.modelBlocked).toBe(false)
+    resolveAction(state, 'a', { type: 'end-turn' })
+    expect(state.activePlayerId).toBe('b')
+    expect(rival.credits).toBe(100)
+    expect(rival.modelBlocked).toBe(true)
+    expect(rival.pending).toEqual([])
+    resolveAction(state, 'b', { type: 'end-turn' })
+    expect(rival.modelBlocked).toBe(false)
+  })
+
   it('starts every player with 1,000 credits', () => {
     expect(started().players.map((player) => player.credits)).toEqual([
       1000, 1000,
@@ -69,7 +130,7 @@ describe('game rules', () => {
       resolveAction(state, 'a', { type: 'play', cardInstanceId: id })
     }
     expect(me.credits).toBe(0)
-    expect(me.tokens).toBe(ids.includes('max') ? 1300 : 650)
+    expect(me.tokens).toBe(ids.includes('max') ? 1500 : 750)
     expect(me.actionsUsed).toBe(3)
     expect(state.events[0].economics?.cost).toBe(0)
     expect(canPlay(state, me, CARDS.beta)).toBe(false)
@@ -89,8 +150,8 @@ describe('game rules', () => {
     me.yieldMultiplier = 1
     for (const id of ['a', 'b']) {
       expect(projectGame(state, id).events[0].economics).toEqual({
-        cost: 100,
-        tokens: 600,
+        cost: 125,
+        tokens: 750,
       })
     }
   })
@@ -142,7 +203,7 @@ describe('game rules', () => {
     expect(projectGame(state, 'b').events[0].discarded).toBe(true)
   })
 
-  it('makes YOLO engineering plays free but not mandatory', () => {
+  it('makes YOLO engineering plays cost no actions but still charges credits', () => {
     const state = started()
     const me = state.players[0]
     me.credits = 2000
@@ -158,21 +219,43 @@ describe('game rules', () => {
       resolveAction(state, 'a', { type: 'play', cardInstanceId: `t${index}` })
     }
     expect(me.actionsUsed).toBe(1)
+    expect(me.credits).toBe(2000 - 4 * CARDS.bug.cost)
     resolveAction(state, 'a', { type: 'end-turn' })
     expect(state.activePlayerId).toBe('b')
   })
 
-  it('does not make YOLO discards free', () => {
+  it('lets YOLO discard unaffordable engineering after all actions are used', () => {
     const state = started()
     const me = state.players[0]
-    me.credits = 300
-    me.unlimitedEngineering = true
+    me.credits = 70
+    me.hand = ['yolo', 'roll-forward', 'accessibility-audit'].map((id) => ({
+      instanceId: id,
+      definitionId: id,
+    }))
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'yolo' })
     me.actionsUsed = 3
-    me.hand = [{ instanceId: 'expensive', definitionId: 'mvp' }]
+    const tokens = me.tokens
+    for (const id of ['roll-forward', 'accessibility-audit']) {
+      resolveAction(state, 'a', { type: 'discard', cardInstanceId: id })
+      expect(state.events[0].discarded).toBe(true)
+    }
+    expect(me.hand).toHaveLength(0)
+    expect(me.credits).toBe(70)
+    expect(me.tokens).toBe(tokens)
+    expect(me.actionsUsed).toBe(3)
+  })
+
+  it('does not make non-engineering YOLO discards free', () => {
+    const state = started()
+    const me = state.players[0]
+    me.unlimitedEngineering = true
+    me.engineeringCardsSlotCost = 0
+    me.actionsUsed = 3
+    me.hand = [{ instanceId: 'squad', definitionId: 'squad' }]
     expect(() =>
       resolveAction(state, 'a', {
         type: 'discard',
-        cardInstanceId: 'expensive',
+        cardInstanceId: 'squad',
       }),
     ).toThrow('No actions left')
   })
@@ -210,9 +293,9 @@ describe('game rules', () => {
       resolveAction(state, 'a', { type: 'play', cardInstanceId: 'refactor' }),
     ).toThrow('no legal effect')
     expect(me.credits).toBe(300)
-    me.credits = 400
+    me.credits = 500
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'refactor' })
-    expect(me.tokens).toBe(1200)
+    expect(me.tokens).toBe(1500)
     expect(me.credits).toBe(0)
   })
 
@@ -223,8 +306,8 @@ describe('game rules', () => {
     me.yieldMultiplier = 1.333
     me.hand = [{ instanceId: 'bug', definitionId: 'bug' }]
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'bug' })
-    expect(me.credits).toBe(ECONOMY.startingCredits - 17)
-    expect(me.tokens).toBe(66)
+    expect(me.credits).toBe(ECONOMY.startingCredits - 34)
+    expect(me.tokens).toBe(133)
   })
 
   it('forces Ralph to clear unaffordable and nested special cards without deadlock', () => {
@@ -289,9 +372,9 @@ describe('game rules', () => {
     }))
     rival.tokens = 3001
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'direction' })
-    expect(rival.tokens).toBe(1500)
+    expect(rival.tokens).toBe(2400)
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'swap' })
-    expect([me.tokens, rival.tokens]).toEqual([1500, 0])
+    expect([me.tokens, rival.tokens]).toEqual([2400, 0])
     me.tokens = 9900
     rival.tokens = 200
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'webinar' })
@@ -328,7 +411,7 @@ describe('game rules', () => {
     me.hand = [{ instanceId: 'bug', definitionId: 'bug' }]
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'bug' })
     expect(state.activePlayerId).toBe('a')
-    expect(me.tokens).toBe(50)
+    expect(me.tokens).toBe(100)
     expect(projectGame(state, 'a')).not.toHaveProperty('turnDeadline')
   })
 
@@ -359,13 +442,13 @@ describe('game rules', () => {
     expect(state).toEqual(before)
   })
 
-  it('deals a deterministic 84-card pool with unique card instances', () => {
+  it('deals a deterministic 85-card pool with unique card instances', () => {
     const first = started()
     const second = started()
     expect(
       first.drawPile.length +
         first.players.reduce((n, p) => n + p.hand.length, 0),
-    ).toBe(84)
+    ).toBe(85)
     expect(first.drawPile).toEqual(second.drawPile)
     expect(
       new Set(first.players.flatMap((p) => p.hand.map((c) => c.instanceId)))
@@ -400,10 +483,10 @@ describe('configurable card mechanics', () => {
     for (const id of ['bug', 'caveman', 'div'])
       resolveAction(state, 'a', { type: 'play', cardInstanceId: id })
     expect(CARDS.caveman.kind).toBe('mode')
-    expect(me.credits).toBe(910)
-    expect(me.tokens).toBe(90)
+    expect(me.credits).toBe(800)
+    expect(me.tokens).toBe(200)
     expect(rival.pending).toEqual([])
-    expect(state.events[0].economics).toEqual({ cost: 40, tokens: 40 })
+    expect(state.events[0].economics).toEqual({ cost: 100, tokens: 100 })
     resolveAction(state, 'a', { type: 'end-turn' })
     expect([me.costMultiplier, me.yieldMultiplier]).toEqual([1, 1])
   })
@@ -423,10 +506,10 @@ describe('configurable card mechanics', () => {
     ]
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'custom' })
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'task' })
-    expect(me.credits).toBe(562)
-    expect(me.tokens).toBe(200)
+    expect(me.credits).toBe(550)
+    expect(me.tokens).toBe(400)
     expect(me.actionLimit).toBe(6)
-    expect(state.events[0].economics).toEqual({ cost: 13, tokens: 200 })
+    expect(state.events[0].economics).toEqual({ cost: 25, tokens: 400 })
   })
 
   it('uses configured slot costs for engineering plays but one slot for discards', () => {

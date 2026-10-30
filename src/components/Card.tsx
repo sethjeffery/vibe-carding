@@ -50,6 +50,7 @@ export function Card({
     discarded || (engineering && player != null && cost > player.credits)
   return (
     <div
+      data-card={card.id}
       className={`game-card tone-${card.tone} ${compact ? 'card-compact' : ''} ${unavailable ? 'card-unavailable' : ''} ${className}`}
     >
       <div className="card-top">

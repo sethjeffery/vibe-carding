@@ -4,11 +4,13 @@ A desktop multiplayer card game about spending AI credits and accumulating techn
 
 ## Play
 
-Run `pnpm dev` and open [the local game](http://127.0.0.1:4173/). Create a game, copy its invite link, and have 1–3 friends join. The host chooses a 3,000, 5,000, or 10,000 token target and starts. Separate players need separate browsers, browser profiles, or private windows. Two tabs in one profile share the same player session.
+Run `pnpm dev` and open [the local game](http://127.0.0.1:4173/). Create a game, copy its invite link, and have up to five friends join, or use **Add AI** to fill open seats with randomly named LLM rivals. The host can empty AI seats before starting. Games need 2–6 players and the first to 10,000 tokens wins. Separate players need separate browsers, browser profiles, or private windows. Two tabs in one profile share the same player session.
 
-Click a card to play it immediately. Clicking a card with no legal effect discards it, using an action. End your turn to keep unplayed cards and refill to seven. The in-game README explains modifiers, YOLO, Ralph, and sabotage.
+Click a card to play it immediately. Clicking a card with no legal effect discards it, using its action cost. End your turn to keep unplayed cards and refill to seven. The in-game README explains modifiers, YOLO, Ralph, and sabotage.
 
 The play area shows the full current turn and outlined spaces for the active player's remaining normal actions. End Turn sits on its right. Your credit meter is beside the bottom-docked hand. Discarded cards retain their grey, diagonal strike on every player's screen, and played status cards stay visible until the turn ends. Long turns scroll horizontally.
+
+AI decisions run in the host’s browser, with a short pause between cards. Keep that browser open; AI turns pause when the host leaves and resume on return. AI players search legal card orders for combinations, credit efficiency, sabotage, and score swaps, while retaining useful cards for later. They use their own hand and public scores, without seeing human hands or the deck.
 
 Your anonymous session is saved in this browser. Refreshing or returning to the same invite restores your seat. Clearing browser storage removes that identity; there is deliberately no account recovery or public matchmaking in v0.1.
 
@@ -27,7 +29,7 @@ The example environment points to this game's configured Supabase project and co
 ```sh
 pnpm check          # ESLint, rules tests, simulations, TypeScript, build, formatting
 pnpm format         # Prettier, including Tailwind class ordering
-pnpm test:network   # Live four-player Supabase test; creates anonymous players and a test match
+pnpm test:network   # Live six-player Supabase test; creates anonymous players and a test match
 pnpm dlx deno@2.9.6 check supabase/functions/game/index.ts
 ```
 
@@ -35,13 +37,14 @@ The network test covers concurrent joins, hidden hands, turn ownership, concurre
 
 ## Code map
 
-- `supabase/functions/_shared/cards.ts`: typed card catalogue and the 67-card supply.
+- `supabase/functions/_shared/cards.ts`: typed card catalogue and the card supply.
 - `supabase/functions/_shared/engine.ts`: deterministic rules, legality, scoring, draws, and private views. Mutates a server-owned state; callers must persist it only after successful resolution.
 - `supabase/functions/_shared/request.ts`: validates untrusted API input.
 - `supabase/functions/game/index.ts`: authenticates requests and commits authoritative transitions.
 - `supabase/migrations/`: tables, RLS, and the transactional compare-and-swap commit function.
 - `src/hooks/useGame.ts`: session restore, realtime subscriptions, polling fallback, and mutation locking.
 - `src/components/`: cards, table, and rules dialog.
+- `src/lib/ai.ts`: local turn search and strategic evaluation using the shared rules engine.
 - `src/lib/sound.ts`: small synthesized card, turn, and victory cues.
 
 ## Supabase and deployment
@@ -50,7 +53,7 @@ Vercel uses `vercel.json` to build the frontend, then deploy the `game` Edge Fun
 
 The function goes live before Vercel publishes the frontend. Keep backend changes compatible with the currently live frontend; Vercel rollback does not roll back Supabase functions. Database migrations are not applied by this build.
 
-The configured project is **Vibe Carding**, ref `fgvcucvvjhrxgwwrrphs`, in London. Its schema, anonymous sign-in, Realtime publication, and Edge Function are already deployed. Its migration history matches the local migration.
+The configured project is **Vibe Carding**, ref `fgvcucvvjhrxgwwrrphs`, in London. Its schema, anonymous sign-in, Realtime publication, and Edge Function are already deployed. Migration `20261030111321_notify_human_players_only.sql` is applied for AI seat support: notification rows reference real auth users, so AI seats must be excluded.
 
 For a fresh project, set your frontend URL and publishable key, enable anonymous sign-in, and apply the migration:
 
@@ -66,18 +69,18 @@ The gateway JWT flag is disabled because the function itself validates every bea
 
 ## Rules decisions for this prototype
 
-The source specification's locked rules are implemented. Provisional choices remain adjustable in the catalogue, `ECONOMY`, and the lobby target:
+The source specification's locked rules are implemented. Provisional choices remain adjustable in the catalogue, `ECONOMY`, and the victory target:
 
 - 1000 starting credits, +200 on later turn starts, a 1,000-credit cap, and no extra refill on the first turn.
 - Three actions, seven-card hands, multiplicative modifiers, cost rounded up, yield rounded down.
 - Every engineering card has a 1:1 base credit cost and token yield. Its large printed number is the base amount; active modifiers are reflected in its description.
-- Sabotage targets the next seat. Direction halves tokens with downward rounding; Webinar steals up to 200; Swap Players exchanges scores. Freeze prevents one refill and Outage blocks models for one turn. Caveman is a mode that halves subsequent engineering cost and yield for the current turn.
-- YOLO frees engineering plays, but discards still spend actions. Ralph overrides the action limit and permits legal discards; New Squad can clear Ralph's remaining hand.
+- Sabotage targets the next seat. Direction halves tokens with downward rounding; Webinar steals up to 200; Swap Players exchanges scores. Freeze prevents one refill and Outage blocks models for one turn. Rate Limited skips the next player’s turn, with no draw or credit refill; other queued effects wait for their next actual turn (one copy). Caveman is a mode that halves subsequent engineering cost and yield for the current turn.
+- YOLO removes action costs for all engineering cards, including unaffordable cards, which are discarded without spending credits or earning tokens. Other discards still spend an action. Ralph overrides the action limit and permits legal discards; New Squad can clear Ralph's remaining hand.
 - Observability reveals the next player's hand only to its caster until that turn ends. Playing it opens a dismissible modal; clicking your Observability card on the table reopens it.
 - Turns have no timer and never end automatically. Existing matches ignore their old stored deadlines.
 - A card that changes no state, such as a credit reset or PAYG top-up at the 1,000-credit cap, is discardable. Affordable tasks remain playable regardless of strategic value.
 
-Authoritative state, deck order, RNG state, and unrevealed hands are never sent to clients or Realtime. A transaction commits each state revision, action receipt, and per-player notification together. Duplicate action IDs cannot spend a card twice.
+Authoritative state, deck order, RNG state, and unrevealed human hands are never sent to other clients or Realtime. Only the host receives the active AI’s hand for local decision making; all moves still pass server validation. AI seats have no auth accounts or notification rows. A transaction commits each state revision, action receipt, and per-player notification together. Duplicate action IDs cannot spend a card twice.
 
 ## Remaining production work
 
@@ -96,7 +99,8 @@ Edit `effect` objects in `supabase/functions/_shared/cards.ts`; names and IDs do
 | `costMultiplier`, `yieldMultiplier` | Multiply subsequent engineering cost/yield; stack multiplicatively and expire at turn end. Defaults: 1. |
 | `target`                            | `current` (default), `next` seat, or `all` opponents in seat order.                                     |
 | `playAllCards`                      | Require an empty hand to end the turn; allow plays/discards beyond the action limit.                    |
-| `engineeringCardsSlotCost`          | Actions used per engineering play (default 1; 0 for YOLO). Discards still cost 1.                       |
+| `engineeringCardsSlotCost`          | Actions used per engineering card, including discards (default 1; 0 for YOLO). Other discards cost 1.   |
+| `skipTurn`                          | Skip the target’s next turn without drawing or refilling credits; does not stack.                       |
 | `disableModels`                     | Block model plays for the affected turn.                                                                |
 | `disableCredits`                    | Skip the target's next automatic credit refill; does not block credit cards.                            |
 | `stealTokens`                       | Transfer up to this many tokens from each target to the player.                                         |

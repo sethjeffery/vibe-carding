@@ -398,6 +398,22 @@ input::placeholder {
   --card-color: #b3a0ff;
   --card-dark: #51447f;
 }
+.game-card[data-card='fable']:not(.card-unavailable) {
+  background-image:
+    radial-gradient(ellipse at top left, #fff9e8cc, transparent 65%),
+    linear-gradient(135deg, #e4c8f5, #becdf5 45%, #bce9dc 75%, #f3dcf1);
+}
+.game-card[data-card='mvp']:not(.card-unavailable) {
+  --card-color: #f3cf78;
+  --card-dark: #72501d;
+  background:
+    radial-gradient(ellipse at top left, #fff8dfcc, transparent 65%),
+    linear-gradient(135deg, #f8df9b, #ebbc65 45%, #ffe8ae 75%, #e4ae60);
+  border-color: #fff0bba6;
+  box-shadow:
+    0 3px 0 #0008,
+    inset 0 0 0 3px #fff3c440;
+}
 .card-top {
   display: flex;
   align-items: center;
@@ -457,6 +473,7 @@ input::placeholder {
   margin: 4px 0 9px;
   border-radius: 7px;
   background: #102b3017;
+  line-height: 1.25;
   font-size: 15px;
   font-weight: 650;
   text-align: center;
@@ -800,6 +817,12 @@ input::placeholder {
 .seat-3 {
   --seat-color: #b3a0ff;
 }
+.seat-4 {
+  --seat-color: #ffb36b;
+}
+.seat-5 {
+  --seat-color: #72d9ac;
+}
 .lobby-seat strong {
   font-size: 12px;
   display: block;
@@ -814,31 +837,31 @@ input::placeholder {
 .empty-seat {
   background: transparent;
   border-style: dashed;
-  opacity: 0.45;
 }
 .empty-seat .player-avatar {
   border-style: dashed;
   background: none;
 }
-.lobby-settings {
-  display: flex;
+.seat-control {
+  flex-shrink: 0;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  margin: 26px 0;
-  gap: 10px;
-}
-.lobby-settings label {
-  font: 8px var(--font-mono);
-  color: #859676;
-  letter-spacing: 1px;
-}
-.lobby-settings select {
-  background: #222b1c;
-  color: #d1ddc5;
-  border: 1px solid #38432d;
-  padding: 8px;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid #526138;
   border-radius: 5px;
-  font-size: 11px;
+  background: #d3fc5308;
+  color: #d3fc53;
+  font: 10px var(--font-mono);
+}
+.seat-control:not(:disabled):hover {
+  background: #d3fc5318;
+  border-color: #d3fc53;
+}
+.seat-control:focus-visible {
+  outline: 2px solid #d3fc53;
+  outline-offset: 3px;
 }
 .lobby-note {
   font-size: 10px;
@@ -855,17 +878,6 @@ input::placeholder {
   font-size: 13px;
   padding: 15px;
 }
-.lobby-connection {
-  grid-column: 1/-1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  color: #65735b;
-  font: 8px var(--font-mono);
-  letter-spacing: 1px;
-}
-
 .in-game {
   --hand-card-height: clamp(220px, 32dvh, 260px);
   --hand-height: calc(
@@ -894,12 +906,16 @@ input::placeholder {
   overflow: hidden;
 }
 .players-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  overflow-x: auto;
   gap: 10px;
   flex-shrink: 0;
 }
 .player-tile {
+  flex: 1 0 260px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 10px;
   position: relative;
   background: #191b1c;
   border: 1px solid #303335;
@@ -915,8 +931,11 @@ input::placeholder {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-right: 125px;
+  min-width: 0;
   min-height: 34px;
+}
+.player-tile-top > .min-w-0 {
+  flex: 1;
 }
 .player-tile h2 {
   display: flex;
@@ -924,11 +943,15 @@ input::placeholder {
   gap: 7px;
   font-size: 12px;
   font-weight: 700;
+}
+.player-name {
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .player-tile h2 small {
+  flex-shrink: 0;
   font: 7px var(--font-mono);
   color: #b0bca4;
   border: 1px solid #4a5144;
@@ -957,9 +980,6 @@ input::placeholder {
   display: none;
 }
 .player-score {
-  position: absolute;
-  right: 12px;
-  top: 12px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -977,6 +997,7 @@ input::placeholder {
   color: #98a18e;
 }
 .score-track {
+  grid-column: 1 / -1;
   height: 3px;
   margin-top: 9px;
   background: #33362f;
@@ -1028,15 +1049,15 @@ input::placeholder {
   background-size: 32px 32px;
 }
 .table-topline {
-  position: relative;
+  position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   gap: 6px;
-  min-height: 36px;
-  padding: 7px 14px;
+  padding: 10px 14px;
   flex-shrink: 0;
+  width: 100%;
 }
 .turn-announcement {
   font-size: 14px;
@@ -1047,6 +1068,7 @@ input::placeholder {
   color: #d3fc53;
 }
 .play-surface {
+  --played-card-width: clamp(110px, 10vw, 145px);
   display: flex;
   flex: 1;
   min-height: 0;
@@ -1064,10 +1086,14 @@ input::placeholder {
   border-radius: 5px;
 }
 .action-space {
-  flex: 0 0 clamp(110px, 10vw, 145px);
+  flex: 0 1 var(--played-card-width);
+  min-width: 0;
   height: min(100%, 220px);
   min-height: 0;
   border-radius: 8px;
+}
+.action-space:last-child {
+  flex-shrink: 0;
 }
 .empty-action-space {
   border: 2px dashed #69756766;
@@ -1083,6 +1109,7 @@ input::placeholder {
   justify-content: safe center;
   gap: 12px;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   padding: 8px 12px 14px;
@@ -1093,8 +1120,12 @@ input::placeholder {
   position: relative;
   animation: enter 0.25s ease both;
 }
+.played-card:hover,
+.played-card:focus-within {
+  z-index: 1;
+}
 .played-card .game-card {
-  width: 100%;
+  width: var(--played-card-width);
   height: 100%;
   aspect-ratio: auto;
   padding: 10px;
@@ -1130,7 +1161,7 @@ input::placeholder {
   display: grid;
   place-items: center;
   bottom: -8px;
-  left: calc(50% - 9px);
+  left: calc(var(--played-card-width) / 2 - 9px);
   color: #1b2415;
   font: 700 8px var(--font-mono);
 }
@@ -1619,14 +1650,13 @@ input::placeholder {
     gap: 8px;
   }
   .players-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
   }
   .player-tile {
+    flex-basis: 160px;
     padding: 8px;
   }
   .player-tile-top {
-    padding-right: 50px;
     gap: 6px;
   }
   .player-tile h2 {
@@ -1641,10 +1671,6 @@ input::placeholder {
     width: 25px;
     height: 25px;
     font-size: 8px;
-  }
-  .player-score {
-    top: 11px;
-    right: 8px;
   }
   .player-score strong {
     font-size: 17px;
@@ -1679,8 +1705,8 @@ input::placeholder {
   .end-turn > svg {
     display: none;
   }
-  .action-space {
-    flex-basis: 115px;
+  .play-surface {
+    --played-card-width: 115px;
   }
   .hand-section {
     padding-left: 10px;

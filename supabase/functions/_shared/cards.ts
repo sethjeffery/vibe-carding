@@ -7,6 +7,7 @@ export interface CardEffect {
   engineeringCardsSlotCost?: number
   disableModels?: boolean
   disableCredits?: boolean
+  skipTurn?: boolean
   stealTokens?: number
   addCredits?: number
   resetCredits?: boolean
@@ -281,6 +282,14 @@ const definitions: Array<
     'Next player can’t use models one turn.',
   ],
   [
+    'rate-limited',
+    'Rate Limited',
+    'sabotage',
+    { target: 'next', skipTurn: true },
+    0,
+    'Next player skips their turn. You’ve been productive. Please stop.',
+  ],
+  [
     'caveman',
     'Caveman',
     'mode',
@@ -294,7 +303,7 @@ const definitions: Array<
     'utility',
     { target: 'next', observability: true },
     0,
-    'Reveal the next player’s hand until your turn ends.',
+    'Reveal the next player’s hand.',
   ],
 ]
 
@@ -347,6 +356,7 @@ export const DECK_COUNTS: Record<string, number> = {
   swap: 1,
   freeze: 1,
   outage: 1,
+  'rate-limited': 1,
   caveman: 1,
 }
 

@@ -16,6 +16,7 @@ export const ECONOMY = {
   refillCredits: 200,
   creditCap: 1000,
 }
+export const MAX_PLAYERS = 6
 
 export interface CardInstance {
   instanceId: string
@@ -25,6 +26,7 @@ export interface CardInstance {
 export type PendingEffect = CardEffect | 'freeze' | 'outage' | 'caveman'
 export interface PlayerState {
   id: string
+  isAI?: boolean
   name: string
   seat: number
   credits: number
@@ -166,11 +168,70 @@ export function joinGame(state: GameState, id: string, name: string) {
   if (state.status !== 'lobby')
     throw new Error('This game has already started.')
   if (state.players.some((player) => player.id === id)) return state
-  if (state.players.length >= 4) throw new Error('This game is full.')
+  if (state.players.length >= MAX_PLAYERS) throw new Error('This game is full.')
   if (!name.trim()) throw new Error('Choose a player name.')
   state.players.push(newPlayer(id, name, state.players.length))
   state.revision++
   return state
+}
+
+const AI_NAMES = [
+  'Claude',
+  'GPT',
+  'Gemini',
+  'Llama',
+  'Mistral',
+  'DeepSeek',
+  'Qwen',
+  'Grok',
+]
+
+export function changeAISeat(
+  state: GameState,
+  userId: string,
+  playerId?: string,
+) {
+  if (userId !== state.hostId)
+    throw new Error('Only the host can change AI seats.')
+  if (state.status !== 'lobby')
+    throw new Error('Seats can only change in the lobby.')
+  if (playerId !== undefined) {
+    const index = state.players.findIndex((p) => p.id === playerId && p.isAI)
+    if (index < 0) throw new Error('Choose an AI seat to empty.')
+    state.players.splice(index, 1)
+    state.players.forEach((player, seat) => {
+      player.seat = seat
+    })
+    state.revision++
+  } else {
+    if (state.players.length >= MAX_PLAYERS)
+      throw new Error('This game is full.')
+    const names = AI_NAMES.filter(
+      (name) => !state.players.some((p) => p.name === name),
+    )
+    const name = names[Math.floor(random(state) * names.length)] ?? 'LLM'
+    let number = 0
+    while (state.players.some((p) => p.id === `ai-${number}`)) number++
+    const id = `ai-${number}`
+    joinGame(state, id, name)
+    state.players[state.players.length - 1].isAI = true
+  }
+  return state
+}
+
+export function resolveClientAction(
+  state: GameState,
+  userId: string,
+  action: GameAction,
+  aiPlayerId?: string,
+) {
+  if (
+    aiPlayerId !== undefined &&
+    (userId !== state.hostId ||
+      !state.players.some((p) => p.id === aiPlayerId && p.isAI))
+  )
+    throw new Error('Only the host can control AI players.')
+  return resolveAction(state, aiPlayerId ?? userId, action)
 }
 
 export function startGame(state: GameState, userId: string, target = 10_000) {
@@ -276,6 +337,10 @@ export function canPlay(
       affected.some(
         (p) => !p.pending.some((e) => pendingEffect(e).disableCredits),
       )) ||
+    (effect.skipTurn &&
+      affected.some(
+        (p) => !p.pending.some((e) => pendingEffect(e).skipTurn),
+      )) ||
     (effect.observability && external && !player.revealPlayerIds.length),
   )
 }
@@ -347,6 +412,7 @@ function applyCard(
       playAllCards: effect.playAllCards,
       disableModels: effect.disableModels,
       disableCredits: effect.disableCredits,
+      skipTurn: effect.skipTurn,
       addActions: effect.addActions,
     }
     if (target.id === player.id) {
@@ -406,7 +472,7 @@ export function resolveAction(
     if (!playable) throw new Error('That card has no legal effect right now.')
   }
   const slotCost =
-    action.type === 'play' && card.kind === 'engineering'
+    card.kind === 'engineering'
       ? (player.engineeringCardsSlotCost ??
         (player.unlimitedEngineering ? 0 : 1))
       : 1
@@ -449,9 +515,25 @@ function endTurn(state: GameState, player: PlayerState) {
   player.modelBlocked = false
   player.revealPlayerIds = []
 
-  const next = nextPlayer(state, player)
-  state.activePlayerId = next.id
+  let next = nextPlayer(state, player)
   state.turn++
+  while (next.pending.some((effect) => pendingEffect(effect).skipTurn)) {
+    next.pending = next.pending.flatMap((queued) => {
+      const effect = { ...pendingEffect(queued) }
+      delete effect.skipTurn
+      return Object.values(effect).some((value) => value !== undefined)
+        ? [effect]
+        : []
+    })
+    addEvent(
+      state,
+      `${next.name} is rate limited and skips their turn.`,
+      'pink',
+    )
+    next = nextPlayer(state, next)
+    state.turn++
+  }
+  state.activePlayerId = next.id
   const pending = next.pending.splice(0).map(pendingEffect)
   for (const effect of pending) applyTurnEffect(next, effect)
   if (!pending.some((effect) => effect.disableCredits))
@@ -479,6 +561,7 @@ export interface GameView extends Omit<
   deckCount: number
   discardCount: number
   meId: string
+  aiHand?: CardInstance[]
 }
 
 export function projectGame(state: GameState, userId: string): GameView {
@@ -494,6 +577,13 @@ export function projectGame(state: GameState, userId: string): GameView {
     victoryTarget: state.victoryTarget,
     events: state.events.slice(0, 30),
     meId: userId,
+    ...(userId === state.hostId &&
+    state.players.some((p) => p.id === state.activePlayerId && p.isAI)
+      ? {
+          aiHand: state.players.find((p) => p.id === state.activePlayerId)!
+            .hand,
+        }
+      : {}),
     deckCount: state.drawPile.length,
     discardCount: state.discardPile.length,
     players: state.players.map((player) => ({
