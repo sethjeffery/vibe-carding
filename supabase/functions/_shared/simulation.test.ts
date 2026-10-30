@@ -12,6 +12,16 @@ import {
 
 function choose(state: GameState) {
   const player = state.players.find((p) => p.id === state.activePlayerId)!
+  if (state.replenishing) {
+    const card =
+      state.players[
+        (player.seat + (state.direction ?? 1) + state.players.length) %
+          state.players.length
+      ].hand[0]
+    if (!card)
+      throw new Error('Pair Programming stalled without cards to steal.')
+    return { type: 'take-card', cardInstanceId: card.instanceId } as const
+  }
   const remaining = player.actionLimit - player.actionsUsed
   const tasks = player.hand.filter(
     (c) => CARDS[c.definitionId].kind === 'engineering',

@@ -1,12 +1,12 @@
 import {
   FiCpu,
-  FiEye,
   FiLayers,
   FiRefreshCw,
   FiShuffle,
   FiTarget,
   FiZap,
 } from 'react-icons/fi'
+import { LuCoins, LuRepeat2 } from 'react-icons/lu'
 import type {
   CardDefinition,
   PlayerView,
@@ -35,13 +35,15 @@ export function Card({
   economics?: { cost: number; tokens: number }
 }) {
   const engineering = card.kind === 'engineering'
-  const Icon = card.effect.observability
-    ? FiEye
-    : card.effect.swapTokens
-      ? FiShuffle
-      : card.effect.addActions
-        ? FiRefreshCw
-        : icons[card.kind]
+  const Icon = card.effect.swapTokens
+    ? FiShuffle
+    : card.effect.addActions
+      ? FiRefreshCw
+      : card.effect.addCredits
+        ? LuCoins
+        : card.effect.reverseDirection
+          ? LuRepeat2
+          : icons[card.kind]
   const cost =
     economics?.cost ?? Math.ceil(card.cost * (player?.costMultiplier ?? 1))
   const earned =

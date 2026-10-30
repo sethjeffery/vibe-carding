@@ -9,8 +9,25 @@ import {
 export function optimisticCardAction(
   game: GameView,
   action: GameAction,
+  beforeUndo?: GameView,
 ): GameView | null {
-  // Ending a turn draws private cards, so wait for the server for that action.
+  if (action.type === 'undo') {
+    if (
+      !beforeUndo ||
+      game.status !== 'playing' ||
+      game.replenishing ||
+      game.activePlayerId !== game.meId ||
+      beforeUndo.meId !== game.meId ||
+      beforeUndo.turn !== game.turn ||
+      !game.undoCardInstanceId ||
+      !beforeUndo.players
+        .find((player) => player.id === game.meId)
+        ?.hand?.some((card) => card.instanceId === game.undoCardInstanceId)
+    )
+      return null
+    return { ...structuredClone(beforeUndo), revision: game.revision + 1 }
+  }
+  // Turn changes may draw private cards from the server.
   if (action.type === 'end-turn') return null
   const state: GameState = structuredClone({
     ...game,
@@ -39,7 +56,7 @@ export function optimisticCardAction(
   next.deckCount = game.deckCount
   next.discardCount += game.discardCount
   next.players.forEach((player, index) => {
-    // Observability can reveal real cards only after the server responds.
+    // Hidden cards are supplied only by the server.
     if (game.players[index].hand === null) player.hand = null
   })
   return next

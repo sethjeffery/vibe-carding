@@ -17,7 +17,7 @@ function started() {
   joinGame(state, 'b', 'Beta')
   return startGame(state, 'a')
 }
-function render(state: GameState, userId: string) {
+function render(state: GameState, userId: string, busy = false) {
   return renderToStaticMarkup(
     createElement(GameTable, {
       room: {
@@ -25,7 +25,7 @@ function render(state: GameState, userId: string) {
         gameId: 'test',
         game: projectGame(state, userId),
       },
-      busy: false,
+      busy,
       onAction: () => {},
       onHome: () => {},
     }),
@@ -91,10 +91,10 @@ it('renders readable pending sabotage labels and tooltips for current and legacy
   for (const userId of ['a', 'b']) {
     const html = render(state, userId)
     expect(html).toContain(
-      'title="Next turn: Budget Freeze, API Outage, Budget Freeze, API Outage, Caveman, Rate Limited"',
+      'title="Next turn: API Outage, Budget Freeze, API Outage, Caveman, Rate Limited"',
     )
     expect(html).toContain(
-      '! Budget Freeze · API Outage · Budget Freeze · API Outage · Caveman · Rate Limited</span>',
+      '! API Outage · Budget Freeze · API Outage · Caveman · Rate Limited</span>',
     )
     expect(html).not.toContain('[object Object]')
   }
@@ -135,7 +135,7 @@ it('renders discarded cards grey in both players’ play area, including legacy 
     if (legacy) delete state.events[0].discarded
     for (const userId of ['a', 'b']) {
       const html = render(state, userId)
-      const label = `aria-label="Discarded ${CARDS.backend.name}"`
+      const label = `aria-label="${userId === 'a' ? 'Undo' : 'Discarded'} ${CARDS.backend.name}"`
       const discarded = html.slice(
         html.indexOf(label),
         html.indexOf(label) + 300,
@@ -199,16 +199,103 @@ it('allows grey unaffordable engineering cards under YOLO even without actions r
   }
 })
 
-it('shows every observed opponent hand in the reveal dialog', () => {
+it('shows only the next player’s hand in the turn-start Pair Programming picker', () => {
   const state = createGame('a', 'Alpha', 42)
   joinGame(state, 'b', 'Beta')
   joinGame(state, 'c', 'Gamma')
   startGame(state, 'a')
-  state.players[0].hand = [{ instanceId: 'observe', definitionId: 'observe' }]
-  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'observe' })
-  state.players[0].revealPlayerIds.push('c')
+  state.players[0].hand = [
+    { instanceId: 'pair', definitionId: 'pair-programming' },
+  ]
+  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'pair' })
+  expect(render(state, 'a')).not.toContain('pair-dialog')
+  resolveAction(state, 'a', { type: 'end-turn' })
+  expect(render(state, 'a')).not.toContain('pair-dialog')
+  resolveAction(state, 'b', { type: 'end-turn' })
+  resolveAction(state, 'c', { type: 'end-turn' })
   const html = render(state, 'a')
-  expect(html).toContain('Observed hands')
+  expect(html).toContain('pair-dialog')
   expect(html).toContain('aria-label="Beta’s hand"')
-  expect(html).toContain('aria-label="Gamma’s hand"')
+  expect(html).not.toContain('aria-label="Gamma’s hand"')
+  expect(render(state, 'b')).not.toContain('pair-dialog')
+})
+
+it('keeps the last card undoable without connectors or explanatory labels', () => {
+  const state = started()
+  state.players[0].hand = ['bug', 'fable', 'bug'].map((definitionId, i) => ({
+    instanceId: `c${100 + i}`,
+    definitionId,
+  }))
+  for (const card of [...state.players[0].hand])
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: card.instanceId })
+  const html = render(state, 'a')
+  expect(html).not.toContain('combo-')
+  expect(html).not.toContain('Click to undo')
+  expect(html).not.toContain('undo-label')
+  expect(html.match(/aria-label="Undo /g)).toHaveLength(1)
+  expect(render(state, 'b')).not.toContain('aria-label="Undo ')
+  expect(html).toContain(`${state.drawPile.length} cards left in the deck`)
+})
+
+it.each([1, -1] as const)(
+  'joins player cards with arrows in direction %i',
+  (direction) => {
+    const state = createGame('a', 'Alpha', 42)
+    joinGame(state, 'b', 'Beta')
+    joinGame(state, 'c', 'Gamma')
+    startGame(state, 'a')
+    state.direction = direction
+    const html = render(state, 'a')
+    expect(html.match(/class="player-join"/g)).toHaveLength(2)
+    expect(
+      html.match(
+        new RegExp(
+          `aria-label="Play moves ${direction === -1 ? 'left' : 'right'}"`,
+          'g',
+        ),
+      ),
+    ).toHaveLength(2)
+    expect(html).not.toContain('Play direction')
+  },
+)
+
+it('keeps board cards as buttons while synchronizing and only disables undo', () => {
+  const state = started()
+  state.players[0].hand = [{ instanceId: 'c100', definitionId: 'bug' }]
+  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'c100' })
+  for (const busy of [false, true]) {
+    const html = render(state, 'a', busy)
+    expect(html).toMatch(/<button[^>]*class="played-card action-space/)
+    expect(html).toContain(
+      `${busy ? 'disabled="" ' : ''}aria-label="Undo ${CARDS.bug.name}"`,
+    )
+  }
+})
+
+it('shows refill particles only on the active viewer’s credit meter', () => {
+  const state = started()
+  state.players[1].credits = 500
+  resolveAction(state, 'a', { type: 'end-turn' })
+  expect(render(state, 'b')).toContain('class="credit-particles"')
+  expect(render(state, 'a')).not.toContain('class="credit-particles"')
+  expect(render(state, 'b')).not.toContain('credit-refill-burst')
+  expect(render(state, 'b')).not.toContain('+200 credits')
+  state.events[0].creditRefill = 0
+  expect(render(state, 'b')).not.toContain('class="credit-particles"')
+})
+
+it('limits Pair Programming choices to the cards actually left in opponents’ hands', () => {
+  const state = started()
+  state.players[0].hand = [
+    { instanceId: 'c1000', definitionId: 'pair-programming' },
+  ]
+  state.players[1].hand = state.players[1].hand.slice(0, 2)
+  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'c1000' })
+  resolveAction(state, 'a', { type: 'end-turn' })
+  state.players[1].hand = state.players[1].hand.slice(0, 2)
+  resolveAction(state, 'b', { type: 'end-turn' })
+  const html = render(state, 'a')
+  expect(html).toContain('Choose up to 2 more cards')
+  expect(html).toContain('Finish</button>')
+  expect(html.match(/aria-label="Take /g)).toHaveLength(2)
 })

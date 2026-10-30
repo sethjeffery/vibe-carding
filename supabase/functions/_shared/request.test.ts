@@ -48,3 +48,24 @@ it('normalises codes and drops untrusted state fields', () => {
     parseRequest(JSON.stringify({ ...valid, code: 'abc234', tokens: 100000 })),
   ).toEqual(valid)
 })
+
+it.each([{ type: 'undo' }, { type: 'take-card', cardInstanceId: 'c123' }])(
+  'accepts the validated turn action %j for a two-digit AI seat',
+  (action) => {
+    const request = { ...valid, aiPlayerId: 'ai-14', action }
+    expect(parseRequest(JSON.stringify(request))).toEqual(request)
+  },
+)
+it.each(['ai-16', 'ai-99', 'ai--1'])(
+  'rejects out-of-range AI seat %s',
+  (aiPlayerId) => {
+    expect(() =>
+      parseRequest(JSON.stringify({ ...valid, aiPlayerId })),
+    ).toThrow()
+  },
+)
+
+it('accepts Finish as a selection action without a card ID', () => {
+  const request = { ...valid, action: { type: 'finish-replenishing' } }
+  expect(parseRequest(JSON.stringify(request))).toEqual(request)
+})

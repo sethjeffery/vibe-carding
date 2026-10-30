@@ -74,7 +74,10 @@ export function parseRequest(raw: string): ClientRequest {
     throw new Error('Invalid game revision.')
   const expectedRevision = body.expectedRevision
   const aiId = op === 'ai-seat' ? body.playerId : body.aiPlayerId
-  if (aiId !== undefined && (typeof aiId !== 'string' || !/^ai-\d$/.test(aiId)))
+  if (
+    aiId !== undefined &&
+    (typeof aiId !== 'string' || !/^ai-(?:[0-9]|1[0-5])$/.test(aiId))
+  )
     throw new Error('Invalid AI player.')
   if (op === 'ai-seat')
     return {
@@ -101,17 +104,23 @@ export function parseRequest(raw: string): ClientRequest {
   }
   if (!record(body.action)) throw new Error('Invalid action.')
   const action = body.action
-  if (action.type === 'end-turn')
+  if (
+    action.type === 'end-turn' ||
+    action.type === 'undo' ||
+    action.type === 'finish-replenishing'
+  )
     return {
       op: 'action',
       code,
       requestId,
       expectedRevision,
       ...(aiId === undefined ? {} : { aiPlayerId: aiId as string }),
-      action: { type: 'end-turn' },
+      action: { type: action.type },
     }
   if (
-    (action.type !== 'play' && action.type !== 'discard') ||
+    (action.type !== 'play' &&
+      action.type !== 'discard' &&
+      action.type !== 'take-card') ||
     typeof action.cardInstanceId !== 'string' ||
     !/^c[1-9]\d{0,9}$/.test(action.cardInstanceId)
   )

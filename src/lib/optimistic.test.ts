@@ -47,15 +47,15 @@ it.each(Object.keys(CARDS))(
   },
 )
 
-it('previews a winning play', () => {
+it('previews tokens without declaring victory until the turn commits', () => {
   const state = scenario()
   state.players[0].tokens = state.victoryTarget - 1
   const preview = optimisticCardAction(projectGame(state, 'a'), {
     type: 'play',
     cardInstanceId: 'chosen',
   })!
-  expect(preview.status).toBe('finished')
-  expect(preview.winnerId).toBe('a')
+  expect(preview.status).toBe('playing')
+  expect(preview.winnerId).toBeUndefined()
 })
 
 it('previews discarding an unaffordable card with no credits or tokens earned', () => {
@@ -97,4 +97,91 @@ it('waits for the server for end-turn and invalid actions', () => {
       cardInstanceId: 'chosen',
     }),
   ).toBeNull()
+})
+
+it.each(Object.keys(CARDS))(
+  'optimistically undoes %s with its original hand order and effects',
+  (definitionId) => {
+    const state = scenario(definitionId)
+    const before = projectGame(state, 'a')
+    let action: GameAction = { type: 'play', cardInstanceId: 'chosen' }
+    try {
+      resolveAction(structuredClone(state), 'a', action)
+    } catch {
+      action = { type: 'discard', cardInstanceId: 'chosen' }
+    }
+    resolveAction(state, 'a', action)
+    const played = projectGame(state, 'a')
+    const unchanged = structuredClone(played)
+    const preview = optimisticCardAction(played, { type: 'undo' }, before)
+    resolveAction(state, 'a', { type: 'undo' })
+    expect(preview).toEqual(projectGame(state, 'a'))
+    expect(played).toEqual(unchanged)
+  },
+)
+
+it('waits for authoritative undo when no matching local snapshot exists', () => {
+  const state = scenario()
+  const before = projectGame(state, 'a')
+  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'chosen' })
+  const played = projectGame(state, 'a')
+  expect(optimisticCardAction(played, { type: 'undo' })).toBeNull()
+  expect(
+    optimisticCardAction(
+      { ...played, replenishing: true },
+      { type: 'undo' },
+      before,
+    ),
+  ).toBeNull()
+  expect(
+    optimisticCardAction({ ...played, meId: 'b' }, { type: 'undo' }, before),
+  ).toBeNull()
+  expect(
+    optimisticCardAction(
+      { ...played, turn: played.turn + 1 },
+      { type: 'undo' },
+      before,
+    ),
+  ).toBeNull()
+})
+
+it('optimistically takes visible cards and finishes Pair Programming without exposing other hands', () => {
+  const state = scenario('pair-programming')
+  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'chosen' })
+  resolveAction(state, 'a', { type: 'end-turn' })
+  resolveAction(state, 'b', { type: 'end-turn' })
+  resolveAction(state, 'c', { type: 'end-turn' })
+  const game = projectGame(state, 'a')
+  const before = structuredClone(game)
+  const action = {
+    type: 'take-card',
+    cardInstanceId: state.players[1].hand[0].instanceId,
+  } as const
+  const preview = optimisticCardAction(game, action)
+  resolveAction(state, 'a', action)
+  expect(preview).toEqual(projectGame(state, 'a'))
+  expect(preview!.players[2].hand).toBeNull()
+  expect(game).toEqual(before)
+  const finish = optimisticCardAction(preview!, { type: 'finish-replenishing' })
+  resolveAction(state, 'a', { type: 'finish-replenishing' })
+  expect(finish).toEqual(projectGame(state, 'a'))
+  expect(finish!.replenishing).toBe(false)
+  expect(finish!.activePlayerId).toBe('a')
+})
+
+it('optimistically closes the picker when the last available card is taken', () => {
+  const state = scenario('pair-programming')
+  resolveAction(state, 'a', { type: 'play', cardInstanceId: 'chosen' })
+  resolveAction(state, 'a', { type: 'end-turn' })
+  resolveAction(state, 'b', { type: 'end-turn' })
+  state.players[1].hand = state.players[1].hand.slice(0, 1)
+  resolveAction(state, 'c', { type: 'end-turn' })
+  const action = {
+    type: 'take-card',
+    cardInstanceId: state.players[1].hand[0].instanceId,
+  } as const
+  const preview = optimisticCardAction(projectGame(state, 'a'), action)
+  resolveAction(state, 'a', action)
+  expect(preview).toEqual(projectGame(state, 'a'))
+  expect(preview!.replenishing).toBe(false)
 })

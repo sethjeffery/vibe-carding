@@ -135,7 +135,7 @@ function App() {
           <section className="hero-copy">
             <div className="hero-tag">
               <FiUsers />
-              2–6 PLAYERS
+              2–16 PLAYERS
               <span />
               ZERO CODE REVIEWS
             </div>
@@ -289,60 +289,68 @@ function App() {
               </button>
             </div>
             <div className="lobby-seats">
-              {Array.from({ length: MAX_PLAYERS }, (_, seat) => {
-                const player = room.game.players[seat]
-                return (
-                  <div
-                    key={seat}
-                    className={`lobby-seat ${player ? `seat-${seat}` : 'empty-seat'}`}
-                  >
-                    <span className="player-avatar">
-                      {player ? (
-                        player.name.slice(0, 2).toUpperCase()
-                      ) : (
-                        <FiPlus />
-                      )}
-                    </span>
-                    <div>
-                      <strong>{player?.name ?? 'Open seat'}</strong>
-                      <small>
-                        {player
-                          ? player.id === room.game.hostId
-                            ? 'HOST'
-                            : player.isAI
-                              ? 'AI PLAYER'
-                              : 'READY TO SHIP'
-                          : 'WAITING FOR A RIVAL'}
-                      </small>
+              {Array.from(
+                {
+                  length: Math.min(
+                    MAX_PLAYERS,
+                    Math.max(4, room.game.players.length + 1),
+                  ),
+                },
+                (_, seat) => {
+                  const player = room.game.players[seat]
+                  return (
+                    <div
+                      key={seat}
+                      className={`lobby-seat ${player ? `seat-${seat}` : 'empty-seat'}`}
+                    >
+                      <span className="player-avatar">
+                        {player ? (
+                          player.name.slice(0, 2).toUpperCase()
+                        ) : (
+                          <FiPlus />
+                        )}
+                      </span>
+                      <div>
+                        <strong>{player?.name ?? 'Open seat'}</strong>
+                        <small>
+                          {player
+                            ? player.id === room.game.hostId
+                              ? 'HOST'
+                              : player.isAI
+                                ? 'AI PLAYER'
+                                : 'READY TO SHIP'
+                            : 'WAITING FOR A RIVAL'}
+                        </small>
+                      </div>
+                      {room.game.meId === room.game.hostId &&
+                      (player?.isAI || seat === room.game.players.length) ? (
+                        <button
+                          className="seat-control ml-auto"
+                          disabled={busy}
+                          aria-label={
+                            player
+                              ? `Remove ${player.name}`
+                              : `Add AI to seat ${seat + 1}`
+                          }
+                          onClick={() =>
+                            void send({
+                              op: 'ai-seat',
+                              code: room.code,
+                              expectedRevision: room.game.revision,
+                              playerId: player?.id,
+                            })
+                          }
+                        >
+                          {player ? <FiX /> : <FiPlus />}
+                          {player ? 'Empty seat' : 'Add AI'}
+                        </button>
+                      ) : player ? (
+                        <FiCheck className="text-lime ml-auto" />
+                      ) : null}
                     </div>
-                    {room.game.meId === room.game.hostId &&
-                    (player?.isAI || seat === room.game.players.length) ? (
-                      <button
-                        className="seat-control ml-auto"
-                        disabled={busy}
-                        aria-label={
-                          player
-                            ? `Remove ${player.name}`
-                            : `Add AI to seat ${seat + 1}`
-                        }
-                        onClick={() =>
-                          void send({
-                            op: 'ai-seat',
-                            code: room.code,
-                            expectedRevision: room.game.revision,
-                            playerId: player?.id,
-                          })
-                        }
-                      >
-                        {player ? <FiX /> : <FiPlus />}
-                        {player ? 'Empty seat' : 'Add AI'}
-                      </button>
-                    ) : player ? (
-                      <FiCheck className="text-lime ml-auto" />
-                    ) : null}
-                  </div>
-                )
-              })}
+                  )
+                },
+              )}
             </div>
             {room.game.hostId === room.game.meId ? (
               <button

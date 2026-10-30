@@ -9,18 +9,20 @@ import {
   startGame,
 } from './engine'
 
-it('fills six seats with distinct AI names, empties a middle seat, and allows a human to join', () => {
+it('fills sixteen seats with distinct AI names, empties a middle seat, and allows a human to join', () => {
   const state = createGame('host', 'Human', 42)
-  for (let i = 0; i < 5; i++) changeAISeat(state, 'host')
-  expect(new Set(state.players.map((p) => p.name)).size).toBe(6)
+  for (let i = 0; i < 15; i++) changeAISeat(state, 'host')
+  expect(new Set(state.players.map((p) => p.name)).size).toBe(16)
   expect(() => changeAISeat(state, 'host')).toThrow('full')
   expect(() => joinGame(state, 'extra', 'Extra')).toThrow('full')
   changeAISeat(state, 'host', state.players[2].id)
   changeAISeat(state, 'host')
-  expect(new Set(state.players.map((p) => p.id)).size).toBe(6)
+  expect(new Set(state.players.map((p) => p.id)).size).toBe(16)
   changeAISeat(state, 'host', state.players[2].id)
   joinGame(state, 'human', 'Guest')
-  expect(state.players.map((p) => p.seat)).toEqual([0, 1, 2, 3, 4, 5])
+  expect(state.players.map((p) => p.seat)).toEqual(
+    Array.from({ length: 16 }, (_, i) => i),
+  )
   startGame(state, 'host')
   expect(state.players.every((p) => p.hand.length === 7)).toBe(true)
 })

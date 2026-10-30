@@ -16,7 +16,7 @@ export const ECONOMY = {
   refillCredits: 200,
   creditCap: 1000,
 }
-export const MAX_PLAYERS = 6
+export const MAX_PLAYERS = 16
 
 export interface CardInstance {
   instanceId: string
@@ -41,7 +41,7 @@ export interface PlayerState {
   mustEmptyHand: boolean
   modelBlocked: boolean
   pending: PendingEffect[]
-  revealPlayerIds: string[]
+  pairProgramming?: boolean
 }
 export interface GameEvent {
   id: number
@@ -50,10 +50,29 @@ export interface GameEvent {
   cardId?: string
   playerId?: string
   discarded?: boolean
+  cardInstanceId?: string
+  stolenFromId?: string
+  creditRefill?: number
   economics?: { cost: number; tokens: number }
   turn: number
 }
+interface QueuedCard {
+  cardId: string
+  targetIds: string[]
+}
+interface TurnUndo {
+  player: PlayerState
+  discardPile: string[]
+  events: GameEvent[]
+  direction: 1 | -1
+  queuedCards: QueuedCard[]
+  cardInstanceId: string
+}
 export interface GameState {
+  direction?: 1 | -1
+  queuedCards?: QueuedCard[]
+  undoHistory?: TurnUndo[]
+  replenishing?: boolean
   status: 'lobby' | 'playing' | 'finished'
   hostId: string
   players: PlayerState[]
@@ -73,6 +92,9 @@ export type GameAction =
   | { type: 'play'; cardInstanceId: string }
   | { type: 'discard'; cardInstanceId: string }
   | { type: 'end-turn' }
+  | { type: 'undo' }
+  | { type: 'finish-replenishing' }
+  | { type: 'take-card'; cardInstanceId: string }
 
 function random(state: GameState) {
   let x = state.rng || 1
@@ -160,7 +182,6 @@ function newPlayer(id: string, name: string, seat: number): PlayerState {
     mustEmptyHand: false,
     modelBlocked: false,
     pending: [],
-    revealPlayerIds: [],
   }
 }
 
@@ -184,6 +205,14 @@ const AI_NAMES = [
   'DeepSeek',
   'Qwen',
   'Grok',
+  'Nova',
+  'Phi',
+  'Command',
+  'Falcon',
+  'Dolly',
+  'Jamba',
+  'Granite',
+  'Solar',
 ]
 
 export function changeAISeat(
@@ -247,7 +276,7 @@ export function startGame(state: GameState, userId: string, target = 10_000) {
   state.drawPile = shuffle(
     state,
     Object.entries(DECK_COUNTS).flatMap(([id, count]) =>
-      Array<string>(count).fill(id),
+      Array<string>(count * Math.ceil(state.players.length / 4)).fill(id),
     ),
   )
   state.players.forEach((player) => draw(state, player, 7))
@@ -259,8 +288,14 @@ export function startGame(state: GameState, userId: string, target = 10_000) {
   return state
 }
 
-function nextPlayer<T>(state: { players: T[] }, current: { seat: number }) {
-  return state.players[(current.seat + 1) % state.players.length]
+function nextPlayer<T>(
+  state: { players: T[]; direction?: 1 | -1 },
+  current: { seat: number },
+) {
+  return state.players[
+    (current.seat + (state.direction ?? 1) + state.players.length) %
+      state.players.length
+  ]
 }
 
 function pendingEffect(effect: PendingEffect): CardEffect {
@@ -271,7 +306,7 @@ function pendingEffect(effect: PendingEffect): CardEffect {
 }
 
 function targets<T>(
-  state: { players: T[] },
+  state: { players: T[]; direction?: 1 | -1 },
   player: { seat: number },
   effect: CardEffect,
 ): T[] {
@@ -285,7 +320,11 @@ function targets<T>(
 }
 
 export function canPlay(
-  state: { players: Array<Pick<PlayerState, 'tokens' | 'pending'>> },
+  state: {
+    players: Array<Pick<PlayerState, 'tokens' | 'pending'> & { id?: string }>
+    direction?: 1 | -1
+    queuedCards?: QueuedCard[]
+  },
   player: Pick<
     PlayerState,
     | 'seat'
@@ -296,7 +335,7 @@ export function canPlay(
     | 'unlimitedEngineering'
     | 'engineeringCardsSlotCost'
     | 'mustEmptyHand'
-    | 'revealPlayerIds'
+    | 'pairProgramming'
   > & { hand: unknown[] | null },
   card: CardDefinition,
 ) {
@@ -304,7 +343,29 @@ export function canPlay(
     return player.credits >= Math.ceil(card.cost * player.costMultiplier)
   if (card.kind === 'model' && player.modelBlocked) return false
   const effect = card.effect
-  const affected = targets(state, player, effect)
+  const preview = {
+    ...state,
+    players: state.players.map((p) => ({ ...p, pending: [...p.pending] })),
+  }
+  let ownTokens = player.tokens
+  for (const queued of state.queuedCards ?? []) {
+    const queuedEffect = CARDS[queued.cardId].effect
+    for (const [seat, target] of preview.players.entries()) {
+      const id = state.players[seat].id
+      if (!id || !queued.targetIds.includes(id)) continue
+      if (queuedEffect.tokenMultiplier !== undefined)
+        target.tokens = Math.floor(target.tokens * queuedEffect.tokenMultiplier)
+      if (queuedEffect.stealTokens) {
+        const stolen = Math.min(queuedEffect.stealTokens, target.tokens)
+        target.tokens -= stolen
+        ownTokens += stolen
+      }
+      if (queuedEffect.swapTokens)
+        [ownTokens, target.tokens] = [target.tokens, ownTokens]
+      target.pending.push(queuedEffect)
+    }
+  }
+  const affected = targets(preview, player, effect)
   const external = effect.target === 'next' || effect.target === 'all'
   return Boolean(
     (effect.tokenMultiplier !== undefined &&
@@ -312,7 +373,7 @@ export function canPlay(
         (p) => Math.floor(p.tokens * effect.tokenMultiplier!) !== p.tokens,
       )) ||
     (external && effect.stealTokens && affected.some((p) => p.tokens > 0)) ||
-    (effect.swapTokens && affected.some((p) => p.tokens !== player.tokens)) ||
+    (effect.swapTokens && affected.some((p) => p.tokens !== ownTokens)) ||
     ((effect.resetCredits || effect.addCredits) &&
       (external || player.credits < ECONOMY.creditCap)) ||
     (effect.costMultiplier !== undefined &&
@@ -341,7 +402,8 @@ export function canPlay(
       affected.some(
         (p) => !p.pending.some((e) => pendingEffect(e).skipTurn),
       )) ||
-    (effect.observability && external && !player.revealPlayerIds.length),
+    effect.reverseDirection ||
+    (effect.replenishFromPlayers && !player.pairProgramming),
   )
 }
 
@@ -361,6 +423,7 @@ function applyCard(
   state: GameState,
   player: PlayerState,
   card: CardDefinition,
+  targetIds?: string[],
 ) {
   if (card.kind === 'engineering') {
     const cost = Math.max(0, Math.ceil(card.cost * player.costMultiplier))
@@ -379,7 +442,11 @@ function applyCard(
     return
   }
   const effect = card.effect
-  for (const target of targets(state, player, effect)) {
+  if (effect.reverseDirection) state.direction = state.direction === -1 ? 1 : -1
+  if (effect.replenishFromPlayers) player.pairProgramming = true
+  for (const target of targetIds
+    ? state.players.filter((p) => targetIds.includes(p.id))
+    : targets(state, player, effect)) {
     if (effect.tokenMultiplier !== undefined)
       target.tokens = Math.floor(target.tokens * effect.tokenMultiplier)
     if (effect.stealTokens) {
@@ -399,12 +466,6 @@ function applyCard(
       state.discardPile.push(...target.hand.map((item) => item.definitionId))
       target.hand = []
     }
-    if (
-      effect.observability &&
-      target.id !== player.id &&
-      !player.revealPlayerIds.includes(target.id)
-    )
-      player.revealPlayerIds.push(target.id)
     const turnEffect: CardEffect = {
       costMultiplier: effect.costMultiplier,
       yieldMultiplier: effect.yieldMultiplier,
@@ -451,10 +512,68 @@ export function resolveAction(
   if (!player || player.id !== state.activePlayerId)
     throw new Error('Wait for your turn.')
 
+  if (state.replenishing) {
+    if (action.type === 'finish-replenishing') {
+      finishReplenishing(state, player)
+      state.revision++
+      return state
+    }
+    if (action.type !== 'take-card')
+      throw new Error('Choose cards to finish replenishing your hand.')
+    const victim = nextPlayer(state, player)
+    if (!victim.hand.some((card) => card.instanceId === action.cardInstanceId))
+      throw new Error('Choose a card from the next player.')
+    const index = victim.hand.findIndex(
+      (c) => c.instanceId === action.cardInstanceId,
+    )
+    const [card] = victim.hand.splice(index, 1)
+    player.hand.push(card)
+    addEvent(
+      state,
+      `${player.name} paired with ${victim.name} and took ${CARDS[card.definitionId].name}.`,
+      'pink',
+      card.definitionId,
+      player.id,
+    )
+    Object.assign(state.events[0], {
+      stolenFromId: victim.id,
+      cardInstanceId: card.instanceId,
+    })
+    if (player.hand.length >= 7 || !victim.hand.length) {
+      finishReplenishing(state, player)
+    }
+    state.revision++
+    return state
+  }
+
+  if (action.type === 'undo') {
+    const previous = state.undoHistory?.pop()
+    if (!previous) throw new Error('There is no card to undo.')
+    Object.assign(player, previous.player)
+    player.pairProgramming = previous.player.pairProgramming
+    player.engineeringCardsSlotCost = previous.player.engineeringCardsSlotCost
+    state.discardPile = previous.discardPile
+    state.events = previous.events
+    state.direction = previous.direction
+    state.queuedCards = previous.queuedCards
+    state.revision++
+    return state
+  }
+
+  if (action.type === 'take-card' || action.type === 'finish-replenishing')
+    throw new Error('Pair Programming is not replenishing your hand.')
+
   if (action.type === 'end-turn') {
     if (player.mustEmptyHand && player.hand.length)
       throw new Error('Play your entire hand before ending your turn.')
-    endTurn(state, player)
+    for (const queued of state.queuedCards ?? []) {
+      applyCard(state, player, CARDS[queued.cardId], queued.targetIds)
+      state.events.shift()
+    }
+    state.queuedCards = []
+    state.undoHistory = []
+    checkVictory(state)
+    if (!state.winnerId) endTurn(state, player)
     state.revision++
     return state
   }
@@ -485,11 +604,35 @@ export function resolveAction(
     throw new Error('No actions left. Ship the turn.')
   }
 
+  // Snapshots contain private hands and must never be included in a client projection.
+  ;(state.undoHistory ??= []).push(
+    structuredClone({
+      player,
+      discardPile: state.discardPile,
+      events: state.events,
+      direction: state.direction ?? 1,
+      queuedCards: state.queuedCards ?? [],
+      cardInstanceId: instance.instanceId,
+    }),
+  )
   player.hand.splice(index, 1)
   state.discardPile.push(instance.definitionId)
   player.actionsUsed += slotCost
-  if (action.type === 'play') applyCard(state, player, card)
-  else
+  if (action.type === 'play') {
+    if (card.effect.target === 'next' || card.effect.target === 'all') {
+      ;(state.queuedCards ??= []).push({
+        cardId: card.id,
+        targetIds: targets(state, player, card.effect).map((p) => p.id),
+      })
+      addEvent(
+        state,
+        `${player.name} queued ${card.name} for the end of the turn.`,
+        card.tone,
+        card.id,
+        player.id,
+      )
+    } else applyCard(state, player, card)
+  } else
     addEvent(
       state,
       `${player.name} binned ${card.name}.`,
@@ -498,13 +641,20 @@ export function resolveAction(
       player.id,
       true,
     )
+  state.events[0].cardInstanceId = instance.instanceId
   state.revision++
-  checkVictory(state)
   return state
 }
 
+function finishReplenishing(state: GameState, player: PlayerState) {
+  // Older saved games opened the picker after committing the turn.
+  const endingTurn = player.pairProgramming === true
+  state.replenishing = false
+  player.pairProgramming = false
+  if (endingTurn) endTurn(state, player)
+}
+
 function endTurn(state: GameState, player: PlayerState) {
-  draw(state, player, 7 - player.hand.length)
   player.actionsUsed = 0
   player.actionLimit = 3
   player.costMultiplier = 1
@@ -513,7 +663,6 @@ function endTurn(state: GameState, player: PlayerState) {
   player.engineeringCardsSlotCost = 1
   player.mustEmptyHand = false
   player.modelBlocked = false
-  player.revealPlayerIds = []
 
   let next = nextPlayer(state, player)
   state.turn++
@@ -534,14 +683,23 @@ function endTurn(state: GameState, player: PlayerState) {
     state.turn++
   }
   state.activePlayerId = next.id
+  if (next.pairProgramming) {
+    next.pairProgramming = false
+    state.replenishing = Boolean(
+      next.hand.length < 7 && nextPlayer(state, next).hand.length,
+    )
+  } else draw(state, next, 7 - next.hand.length)
   const pending = next.pending.splice(0).map(pendingEffect)
   for (const effect of pending) applyTurnEffect(next, effect)
+  const beforeCredits = next.credits
   if (!pending.some((effect) => effect.disableCredits))
     next.credits = Math.min(
       ECONOMY.creditCap,
       next.credits + ECONOMY.refillCredits,
     )
   addEvent(state, `${next.name} has the keyboard.`)
+  state.events[0].playerId = next.id
+  state.events[0].creditRefill = next.credits - beforeCredits
 }
 
 export interface PlayerView extends Omit<PlayerState, 'hand'> {
@@ -556,18 +714,31 @@ export interface GameView extends Omit<
   | 'rng'
   | 'nextCardNumber'
   | 'nextEventNumber'
+  | 'undoHistory'
 > {
   players: PlayerView[]
   deckCount: number
   discardCount: number
   meId: string
   aiHand?: CardInstance[]
+  undoCardInstanceId?: string
+  pairProgrammingTargetId?: string
 }
 
 export function projectGame(state: GameState, userId: string): GameView {
   const me = state.players.find((player) => player.id === userId)
   if (!me) throw new Error('You are not in this game.')
+  const active = state.players.find(
+    (player) => player.id === state.activePlayerId,
+  )
+  const pairProgrammingTargetId =
+    state.replenishing && active ? nextPlayer(state, active).id : undefined
   return {
+    direction: state.direction ?? 1,
+    replenishing: state.replenishing ?? false,
+    pairProgrammingTargetId,
+    queuedCards: state.queuedCards ?? [],
+    undoCardInstanceId: state.undoHistory?.at(-1)?.cardInstanceId,
     status: state.status,
     hostId: state.hostId,
     activePlayerId: state.activePlayerId,
@@ -590,7 +761,13 @@ export function projectGame(state: GameState, userId: string): GameView {
       ...player,
       handCount: player.hand.length,
       hand:
-        player.id === userId || me.revealPlayerIds.includes(player.id)
+        player.id === userId ||
+        (player.id === pairProgrammingTargetId &&
+          (state.activePlayerId === userId ||
+            (userId === state.hostId &&
+              state.players.some(
+                (p) => p.id === state.activePlayerId && p.isAI,
+              ))))
           ? player.hand.map((instance) => ({
               ...instance,
               card: CARDS[instance.definitionId],

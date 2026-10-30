@@ -67,7 +67,8 @@ snapshot = await invoke(0, {
 assert(snapshot.game.players.every((player) => player.credits === 1000))
 assert.equal(
   snapshot.game.deckCount + 6 * 7,
-  Object.values(DECK_COUNTS).reduce((sum, count) => sum + count, 0),
+  Object.values(DECK_COUNTS).reduce((sum, count) => sum + count, 0) *
+    Math.ceil(snapshot.game.players.length / 4),
 )
 assert.equal(snapshot.game.players[0].hand.length, 7)
 assert(snapshot.game.players.slice(1).every((p) => p.hand === null))

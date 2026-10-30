@@ -3,6 +3,7 @@ import { chooseAIAction } from './ai'
 import {
   changeAISeat,
   createGame,
+  joinGame,
   projectGame,
   resolveAction,
   resolveClientAction,
@@ -75,9 +76,9 @@ it('spends credits before resetting them and uses the refill to ship again', () 
   expect(state.players[1].credits).toBe(150)
 })
 
-it('takes a winning swap immediately and never swaps its lead away', () => {
+it('commits a winning swap and never swaps its lead away', () => {
   const winning = scenario(['swap', 'mvp'])
-  winning.players[0].tokens = 9900
+  winning.players[0].tokens = 10100
   winning.players[1].tokens = 100
   playTurn(winning)
   expect(winning.winnerId).toBe(winning.players[1].id)
@@ -96,6 +97,8 @@ it('clears mandatory Ralph hands even when models are blocked and tasks unafford
     actionsUsed: 3,
   })
   playTurn(state)
+  expect(state.players[1].hand).toHaveLength(0)
+  resolveAction(state, 'host', { type: 'end-turn' })
   expect(state.players[1].hand).toHaveLength(7)
 })
 
@@ -157,4 +160,58 @@ it('plays Rate Limited to skip a rival turn', () => {
   )
   resolveClientAction(state, 'host', { type: 'end-turn' }, ai.id)
   expect(state.activePlayerId).toBe(ai.id)
+})
+
+it('chooses face-up cards for Pair Programming until its hand is replenished', () => {
+  const state = scenario(['pair-programming'])
+  const ai = state.players[1]
+  resolveClientAction(
+    state,
+    'host',
+    { type: 'play', cardInstanceId: 'c100' },
+    ai.id,
+  )
+  resolveClientAction(state, 'host', { type: 'end-turn' }, ai.id)
+  expect(state.replenishing).toBeFalsy()
+  resolveAction(state, 'host', { type: 'end-turn' })
+  expect(state.replenishing).toBe(true)
+  for (let i = 0; state.replenishing && i < 7; i++) {
+    const action = chooseAIAction(projectGame(state, 'host'))
+    expect(action?.type).toBe('take-card')
+    resolveClientAction(state, 'host', action!, ai.id)
+  }
+  expect(state.replenishing).toBe(false)
+  expect(ai.hand).toHaveLength(7)
+})
+
+it('only takes the next player’s cards even when the host can see a stronger human hand', () => {
+  const state = createGame('host', 'Human', 42)
+  changeAISeat(state, 'host')
+  joinGame(state, 'guest', 'Guest')
+  startGame(state, 'host')
+  resolveAction(state, 'host', { type: 'end-turn' })
+  const ai = state.players[1]
+  ai.hand = [{ instanceId: 'c100', definitionId: 'pair-programming' }]
+  state.players[0].hand = [{ instanceId: 'c200', definitionId: 'fable' }]
+  state.players[2].hand = [{ instanceId: 'c300', definitionId: 'centre-div' }]
+  resolveClientAction(
+    state,
+    'host',
+    { type: 'play', cardInstanceId: 'c100' },
+    ai.id,
+  )
+  resolveClientAction(state, 'host', { type: 'end-turn' }, ai.id)
+  resolveAction(state, 'guest', { type: 'end-turn' })
+  state.players[0].hand = [{ instanceId: 'c200', definitionId: 'fable' }]
+  state.players[2].hand = [{ instanceId: 'c300', definitionId: 'centre-div' }]
+  resolveAction(state, 'host', { type: 'end-turn' })
+  const view = projectGame(state, 'host')
+  expect(view.players[0].hand).not.toBeNull()
+  expect(chooseAIAction(view)).toEqual({
+    type: 'take-card',
+    cardInstanceId: 'c300',
+  })
+  resolveClientAction(state, 'host', chooseAIAction(view)!, ai.id)
+  expect(state.replenishing).toBe(false)
+  expect(ai.hand).toEqual([{ instanceId: 'c300', definitionId: 'centre-div' }])
 })

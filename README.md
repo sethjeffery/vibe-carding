@@ -4,13 +4,13 @@ A desktop multiplayer card game about spending AI credits and accumulating techn
 
 ## Play
 
-Run `pnpm dev` and open [the local game](http://127.0.0.1:4173/). Create a game, copy its invite link, and have up to five friends join, or use **Add AI** to fill open seats with randomly named LLM rivals. The host can empty AI seats before starting. Games need 2–6 players and the first to 10,000 tokens wins. Separate players need separate browsers, browser profiles, or private windows. Two tabs in one profile share the same player session.
+Run `pnpm dev` and open [the local game](http://127.0.0.1:4173/). Create a game, copy its invite link, and have up to fifteen friends join, or use **Add AI** to fill open seats with randomly named LLM rivals. The host can empty AI seats before starting. Games need 2–16 players and the first to 10,000 tokens wins. Separate players need separate browsers, browser profiles, or private windows. Two tabs in one profile share the same player session.
 
-Click a card to play it immediately. Clicking a card with no legal effect discards it, using its action cost. End your turn to keep unplayed cards and refill to seven. The in-game README explains modifiers, YOLO, Ralph, and sabotage.
+Click a card to play it immediately. Clicking a card with no legal effect discards it, using its action cost. Keep unplayed cards when ending your turn; refill to seven at the start of your next turn. The in-game README explains modifiers, YOLO, Ralph, and sabotage.
 
-The play area shows the full current turn and outlined spaces for the active player's remaining normal actions. End Turn sits on its right. Your credit meter is beside the bottom-docked hand. Discarded cards retain their grey, diagonal strike on every player's screen, and played status cards stay visible until the turn ends. Long turns scroll horizontally.
+The play area shows the full current turn and outlined spaces for the active player's remaining normal actions. End turn sits at the bottom centre; the deck stack on the left shows the remaining draw pile. Click the last placed card to undo it. Your credit meter is beside the bottom-docked hand. Discarded cards retain their grey, diagonal strike on every player's screen, and played status cards stay visible until the turn ends. Long turns scroll horizontally.
 
-AI decisions run in the host’s browser, with a short pause between cards. Keep that browser open; AI turns pause when the host leaves and resume on return. AI players search legal card orders for combinations, credit efficiency, sabotage, and score swaps, while retaining useful cards for later. They use their own hand and public scores, without seeing human hands or the deck.
+AI decisions run in the host’s browser, with a short pause between cards. Keep that browser open; AI turns pause when the host leaves and resume on return. AI players search legal card orders for combinations, credit efficiency, sabotage, and score swaps, while retaining useful cards for later. They use their own hand and public scores, without seeing human hands or the deck, except the turn-start Pair Programming selection.
 
 Your anonymous session is saved in this browser. Refreshing or returning to the same invite restores your seat. Clearing browser storage removes that identity; there is deliberately no account recovery or public matchmaking in v0.1.
 
@@ -76,11 +76,14 @@ The source specification's locked rules are implemented. Provisional choices rem
 - Every engineering card has a 1:1 base credit cost and token yield. Its large printed number is the base amount; active modifiers are reflected in its description.
 - Sabotage targets the next seat. Direction halves tokens with downward rounding; Webinar steals up to 200; Swap Players exchanges scores. Freeze prevents one refill and Outage blocks models for one turn. Rate Limited skips the next player’s turn, with no draw or credit refill; other queued effects wait for their next actual turn (one copy). Caveman is a mode that halves subsequent engineering cost and yield for the current turn.
 - YOLO removes action costs for all engineering cards, including unaffordable cards, which are discarded without spending credits or earning tokens. Other discards still spend an action. Ralph overrides the action limit and permits legal discards; New Squad can clear Ralph's remaining hand.
-- Observability reveals the next player's hand only to its caster until that turn ends. Playing it opens a dismissible modal; clicking your Observability card on the table reopens it.
+- Cards preview their effects until End turn. Click the last placed card to undo it; sabotage and victory resolve when the turn commits.
+- Pivot reverses play direction. Each sabotage targets the next player in the direction at the point it was placed.
+- Pair Programming replaces the draw at the start of your next turn with face-up choices from the next player in the current play direction, until the caster holds seven cards or that player has no cards left. Finish lets the caster stop choosing early and begin playing. All players replenish to seven at the start of their own turns, including cards lost to theft.
+- Deck composition repeats once per four players (one copy for 2–4, up to four for 13–16). Observability is retired; saved copies become Pair Programming.
 - Turns have no timer and never end automatically. Existing matches ignore their old stored deadlines.
 - A card that changes no state, such as a credit reset or PAYG top-up at the 1,000-credit cap, is discardable. Affordable tasks remain playable regardless of strategic value.
 
-Authoritative state, deck order, RNG state, and unrevealed human hands are never sent to other clients or Realtime. Only the host receives the active AI’s hand for local decision making; all moves still pass server validation. AI seats have no auth accounts or notification rows. A transaction commits each state revision, action receipt, and per-player notification together. Duplicate action IDs cannot spend a card twice.
+Authoritative state, deck order, RNG state, and unrevealed human hands are never sent to other clients or Realtime. Only the host receives the active AI’s hand for local decision making; the player choosing Pair Programming cards (or host controlling that AI) also receives only the target’s hand during the turn-start selection; all moves still pass server validation. AI seats have no auth accounts or notification rows. A transaction commits each state revision, action receipt, and per-player notification together. Duplicate action IDs cannot spend a card twice.
 
 ## Remaining production work
 
@@ -94,21 +97,22 @@ Credit Reset refills to 1,000 credits (one copy). PAYG 200, 300, and 500 top up 
 
 Edit `effect` objects in `supabase/functions/_shared/cards.ts`; names and IDs do not select game behavior. For example, Caveman uses `{ costMultiplier: 0.5, yieldMultiplier: 0.5 }`. Update the card's descriptive copy when changing its mechanics.
 
-| Field                               | Meaning                                                                                                 |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `costMultiplier`, `yieldMultiplier` | Multiply subsequent engineering cost/yield; stack multiplicatively and expire at turn end. Defaults: 1. |
-| `target`                            | `current` (default), `next` seat, or `all` opponents in seat order.                                     |
-| `playAllCards`                      | Require an empty hand to end the turn; allow plays/discards beyond the action limit.                    |
-| `engineeringCardsSlotCost`          | Actions used per engineering card, including discards (default 1; 0 for YOLO). Other discards cost 1.   |
-| `skipTurn`                          | Skip the target’s next turn without drawing or refilling credits; does not stack.                       |
-| `disableModels`                     | Block model plays for the affected turn.                                                                |
-| `disableCredits`                    | Skip the target's next automatic credit refill; does not block credit cards.                            |
-| `stealTokens`                       | Transfer up to this many tokens from each target to the player.                                         |
-| `addCredits`, `resetCredits`        | Add credits up to the economy cap, or refill to that cap.                                               |
-| `observability`                     | Reveal targeted opponents' hands to the player until the player's turn ends.                            |
-| `tokenMultiplier`                   | Immediately multiply existing token balances, rounded down (Direction: 0.5).                            |
-| `swapTokens`                        | Exchange tokens with each target in seat order.                                                         |
-| `discardHand`                       | Discard the target's remaining hand (New Squad).                                                        |
-| `addActions`                        | Increase the affected turn's action limit (/loop).                                                      |
+| Field                               | Meaning                                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `costMultiplier`, `yieldMultiplier` | Multiply subsequent engineering cost/yield; stack multiplicatively and expire at turn end. Defaults: 1.         |
+| `target`                            | `current` (default), `next` seat, or `all` opponents in seat order.                                             |
+| `playAllCards`                      | Require an empty hand to end the turn; allow plays/discards beyond the action limit.                            |
+| `engineeringCardsSlotCost`          | Actions used per engineering card, including discards (default 1; 0 for YOLO). Other discards cost 1.           |
+| `skipTurn`                          | Skip the target’s next turn without drawing or refilling credits; does not stack.                               |
+| `disableModels`                     | Block model plays for the affected turn.                                                                        |
+| `disableCredits`                    | Skip the target's next automatic credit refill; does not block credit cards.                                    |
+| `stealTokens`                       | Transfer up to this many tokens from each target to the player.                                                 |
+| `addCredits`, `resetCredits`        | Add credits up to the economy cap, or refill to that cap.                                                       |
+| `reverseDirection`                  | Reverse play direction, provisionally until commitment.                                                         |
+| `replenishFromPlayers`              | Choose the next player’s remaining cards at the start of your next turn, stopping at seven or when none remain. |
+| `tokenMultiplier`                   | Immediately multiply existing token balances, rounded down (Direction: 0.5).                                    |
+| `swapTokens`                        | Exchange tokens with each target in seat order.                                                                 |
+| `discardHand`                       | Discard the target's remaining hand (New Squad).                                                                |
+| `addActions`                        | Increase the affected turn's action limit (/loop).                                                              |
 
-Effects compose: any component with a legal effect makes a card playable. Balances, theft, swaps, hand discards and reveals resolve immediately. Turn modifiers apply immediately to the current player or queue for each opponent's next turn. Costs round up; earned tokens round down. Queued effects in saved games from the earlier engine remain supported.
+Effects compose: any component with a legal effect makes a card playable. Own balances, hand discards and turn modifiers preview immediately and can be undone. Effects targeting opponents queue until commitment, resolving in play order against the targets recorded when placed; next-turn modifiers then wait for the target’s turn. Costs round up; earned tokens round down. Queued effects in saved games from the earlier engine remain supported.

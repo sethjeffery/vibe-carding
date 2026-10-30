@@ -18,7 +18,7 @@ const cues = {
   buff: [330, 440, 554, 660],
   debuff: [110, 80, 110, 65],
   engineering: [392, 523, 784],
-  reveal: [880, 1320, 880],
+  snatch: [880, 440, 220],
   reset: [660, 440, 330, 660],
 }
 
@@ -27,7 +27,6 @@ export function playCardSound(cardId: string, discarded = false) {
   if (discarded || !card) return playSound('card')
   if (card.kind === 'sabotage') return playSound('debuff')
   if (card.kind === 'engineering') return playSound('engineering')
-  if (card.effect.observability) return playSound('reveal')
   if (card.effect.discardHand) return playSound('reset')
   playSound('buff')
 }

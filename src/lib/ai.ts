@@ -76,6 +76,15 @@ export function chooseAIAction(game: GameView): GameAction | null {
     !game.aiHand
   )
     return null
+  if (game.replenishing) {
+    const choices = game.players
+      .filter((p) => p.id === game.pairProgrammingTargetId)
+      .flatMap((p) => p.hand ?? [])
+      .sort((a, b) => reserveValue(b.card) - reserveValue(a.card))
+    return choices[0]
+      ? { type: 'take-card', cardInstanceId: choices[0].instanceId }
+      : null
+  }
   const state: GameState = {
     ...game,
     players: game.players.map((p) => ({
@@ -95,7 +104,12 @@ export function chooseAIAction(game: GameView): GameAction | null {
   const seen = new Set<string>()
   function search(current: GameState, first?: GameAction) {
     const me = current.players[active!.seat]
-    const score = evaluate(current, me.id)
+    const committed = structuredClone(current)
+    if (!me.mustEmptyHand || !me.hand.length)
+      resolveAction(committed, me.id, { type: 'end-turn' })
+    committed.players.find((p) => p.id === me.id)!.hand = me.hand
+    const score =
+      evaluate(committed, me.id) + (committed.turn - current.turn - 1) * 300
     if (
       (!me.mustEmptyHand || !me.hand.length || current.status === 'finished') &&
       score > bestScore
@@ -104,7 +118,11 @@ export function chooseAIAction(game: GameView): GameAction | null {
       best = first ?? { type: 'end-turn' }
     }
     if (current.status === 'finished') return
-    const key = JSON.stringify(current.players)
+    const key = JSON.stringify([
+      current.players,
+      current.queuedCards,
+      current.direction,
+    ])
     if (seen.has(key)) return
     seen.add(key)
     const definitions = new Set<string>()
@@ -125,6 +143,7 @@ export function chooseAIAction(game: GameView): GameAction | null {
       const next = structuredClone(current)
       resolveAction(next, me.id, action)
       next.events = []
+      next.undoHistory = []
       search(next, first ?? action)
     }
   }

@@ -19,6 +19,14 @@ export function useGame() {
   const [restoring, setRestoring] = useState(Boolean(initialCode))
   const roomRef = useRef<GameResponse | null>(null)
   const optimistic = useRef<GameResponse | null>(null)
+  // shortcut: reloaded turns undo on the server; expose owner-only snapshots if reloads need instant undo.
+  const undoHistory = useRef<
+    Array<{
+      revision: number
+      cardInstanceId: string
+      game: GameResponse['game']
+    }>
+  >([])
   const lock = useRef(false)
   const mounted = useRef(true)
   const generation = useRef(0)
@@ -38,9 +46,18 @@ export function useGame() {
       previous?.gameId === next.gameId &&
       next.game.revision > previous.game.revision
     ) {
-      if (next.game.status === 'finished') playSound('win')
+      const snatched = next.game.events.some(
+        (event) =>
+          event.id > (previous.game.events[0]?.id ?? 0) &&
+          event.stolenFromId === next.game.meId,
+      )
+      if (snatched) playSound('snatch')
+      else if (next.game.status === 'finished') playSound('win')
       else if (next.game.turn !== previous.game.turn) playSound('turn')
-      else if (next.game.events[0]?.cardId) {
+      else if (
+        next.game.events[0]?.cardId &&
+        next.game.events[0].id > (previous.game.events[0]?.id ?? 0)
+      ) {
         const event = next.game.events[0]
         playCardSound(event.cardId!, event.discarded)
       }
@@ -138,17 +155,58 @@ export function useGame() {
         !body.aiPlayerId &&
         body.action
       ) {
-        const game = optimisticCardAction(current.game, body.action)
+        const previous = undoHistory.current.at(-1)
+        const game = optimisticCardAction(
+          current.game,
+          body.action,
+          previous?.revision === current.game.revision &&
+            previous.cardInstanceId === current.game.undoCardInstanceId
+            ? previous.game
+            : undefined,
+        )
         if (game) {
           optimistic.current = { ...current, game }
           setRoom(optimistic.current)
-          if (game.status === 'finished') playSound('win')
-          else playCardSound(game.events[0].cardId!, game.events[0].discarded)
+          if (body.action.type === 'take-card') playSound('snatch')
+          else if (body.action.type === 'undo') playSound('card')
+          else if (game.status === 'finished') playSound('win')
+          else if (body.action.type !== 'finish-replenishing')
+            playCardSound(game.events[0].cardId!, game.events[0].discarded)
         }
       }
       try {
         const next = await gameRequest(body)
-        if (startedAt === generation.current) accept(next)
+        if (startedAt === generation.current) {
+          if (
+            current &&
+            body.op === 'action' &&
+            !body.aiPlayerId &&
+            body.expectedRevision === current.game.revision &&
+            next.game.revision === current.game.revision + 1 &&
+            next.game.turn === current.game.turn &&
+            next.game.status === 'playing'
+          ) {
+            const previous = undoHistory.current.at(-1)
+            if (previous && previous.revision !== current.game.revision)
+              undoHistory.current = []
+            if (
+              (body.action?.type === 'play' ||
+                body.action?.type === 'discard') &&
+              next.game.undoCardInstanceId === body.action.cardInstanceId
+            ) {
+              undoHistory.current.push({
+                revision: next.game.revision,
+                cardInstanceId: body.action.cardInstanceId,
+                game: current.game,
+              })
+            } else if (body.action?.type === 'undo') {
+              undoHistory.current.pop()
+              const last = undoHistory.current.at(-1)
+              if (last) last.revision = next.game.revision
+            }
+          } else undoHistory.current = []
+          accept(next)
+        }
       } catch (cause) {
         if (startedAt !== generation.current || !mounted.current) return
         if (optimistic.current) {
@@ -199,6 +257,7 @@ export function useGame() {
 
   function leave() {
     generation.current++
+    undoHistory.current = []
     optimistic.current = null
     roomRef.current = null
     setRoom(null)

@@ -11,7 +11,8 @@ export interface CardEffect {
   stealTokens?: number
   addCredits?: number
   resetCredits?: boolean
-  observability?: boolean
+  reverseDirection?: boolean
+  replenishFromPlayers?: boolean
   tokenMultiplier?: number
   swapTokens?: boolean
   discardHand?: boolean
@@ -259,7 +260,7 @@ const definitions: Array<
   ],
   [
     'swap',
-    'Swap Players',
+    'Work Reassignment',
     'sabotage',
     { target: 'next', swapTokens: true },
     0,
@@ -287,7 +288,7 @@ const definitions: Array<
     'sabotage',
     { target: 'next', skipTurn: true },
     0,
-    'Next player skips their turn. You’ve been productive. Please stop.',
+    'Next player skips their turn for being too productive.',
   ],
   [
     'caveman',
@@ -298,12 +299,20 @@ const definitions: Array<
     'Cost and yield both halved this turn.',
   ],
   [
-    'observe',
-    'Observability',
+    'pivot',
+    'Pivot',
     'utility',
-    { target: 'next', observability: true },
+    { reverseDirection: true },
     0,
-    'Reveal the next player’s hand.',
+    'Reverse the direction of play.',
+  ],
+  [
+    'pair-programming',
+    'Pair Programming',
+    'utility',
+    { replenishFromPlayers: true },
+    0,
+    "Next turn, replenish from the next player's cards.",
   ],
 ]
 
@@ -350,7 +359,8 @@ export const DECK_COUNTS: Record<string, number> = {
   'payg-300': 2,
   'payg-500': 2,
   beta: 2,
-  observe: 2,
+  pivot: 2,
+  'pair-programming': 2,
   direction: 2,
   webinar: 2,
   swap: 1,
@@ -371,3 +381,6 @@ for (const [legacyId, id] of Object.entries({
 })) {
   Object.defineProperty(CARDS, legacyId, { value: CARDS[id] })
 }
+
+// Retire Observability in saved decks and hands as well.
+Object.defineProperty(CARDS, 'observe', { value: CARDS['pair-programming'] })

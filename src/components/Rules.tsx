@@ -25,7 +25,10 @@ export function Rules({ onClose }: { onClose: () => void }) {
         <FiTarget />
         <div>
           <h3>Burn your way to the top</h3>
-          <p>Spend credits to burn LLM tokens. The first to 10,000 wins!</p>
+          <p>
+            Spend credits to burn LLM tokens. Reach the game’s token target at
+            the end of your turn to win.
+          </p>
         </div>
       </div>
       <div className="rule-row">
@@ -33,8 +36,10 @@ export function Rules({ onClose }: { onClose: () => void }) {
         <div>
           <h3>Three cards per turn</h3>
           <p>
-            Play up to three cards. If you cannot afford a card due to low
-            credits, it has no effect and is discarded.
+            Play up to three cards. Cards with no legal effect are discarded.
+            Click the last card on the table to undo it. End turn commits your
+            cards and applies sabotage. Refill to seven at the start of your
+            next turn.
           </p>
         </div>
       </div>
@@ -44,7 +49,21 @@ export function Rules({ onClose }: { onClose: () => void }) {
           <h3>Order is everything</h3>
           <p>
             Models and modes affect engineering cards played after them.
-            Multipliers stack. You must afford the full cost.
+            Multipliers stack. You must afford the full cost. Pivot reverses
+            play direction; sabotage targets the next player in the direction
+            when you place it.
+          </p>
+        </div>
+      </div>
+      <div className="rule-row">
+        <FiLayers />
+        <div>
+          <h3>Pair Programming</h3>
+          <p>
+            At the start of your next turn, choose face-up cards from the next
+            player instead of drawing until you have seven cards or their hand
+            is empty, or choose Finish early. Hands are replenished at the start
+            of each player’s turn.
           </p>
         </div>
       </div>

@@ -908,8 +908,21 @@ input::placeholder {
 .players-row {
   display: flex;
   overflow-x: auto;
-  gap: 10px;
+  gap: 1px;
   flex-shrink: 0;
+}
+.player-join {
+  display: flex;
+  align-items: center;
+  flex: 0 0 18px;
+  color: #819172;
+}
+.player-join svg {
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: all 0.4s ease;
 }
 .player-tile {
   flex: 1 0 260px;
@@ -1095,16 +1108,24 @@ input::placeholder {
   color: #d3fc53;
 }
 .play-surface {
+  position: relative;
+  flex-direction: column;
+  --deck-gutter: 66px;
+  padding-left: var(--deck-gutter);
+  padding-right: var(--deck-gutter);
   --played-card-width: clamp(110px, 10vw, 145px);
   display: flex;
   flex: 1;
   min-height: 0;
 }
 .play-controls {
+  margin-left: calc(-1 * var(--deck-gutter));
+  margin-right: calc(-1 * var(--deck-gutter));
+  justify-content: center;
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  padding: 10px 12px 14px 0;
+  padding: 10px 12px 14px;
 }
 .end-turn {
   font-size: 12px;
@@ -1113,14 +1134,12 @@ input::placeholder {
   border-radius: 5px;
 }
 .action-space {
-  flex: 0 1 var(--played-card-width);
+  position: relative;
+  flex: 0 0 var(--played-card-width);
   min-width: 0;
   height: min(100%, 220px);
   min-height: 0;
   border-radius: 8px;
-}
-.action-space:last-child {
-  flex-shrink: 0;
 }
 .empty-action-space {
   border: 2px dashed #69756766;
@@ -1131,6 +1150,7 @@ input::placeholder {
   background: #d3fc5304;
 }
 .played-cards {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: safe center;
@@ -1145,7 +1165,7 @@ input::placeholder {
 }
 .played-card {
   position: relative;
-  animation: enter 0.25s ease both;
+  animation: board-arrival 0.18s ease-out;
 }
 .played-card:hover,
 .played-card:focus-within {
@@ -1192,14 +1212,14 @@ input::placeholder {
   color: #1b2415;
   font: 700 8px var(--font-mono);
 }
-.reveal-card {
+.undo-card {
   background: transparent;
   padding: 0;
   border: 0;
   border-radius: 8px;
   text-align: left;
 }
-.reveal-card:hover {
+.undo-card:not(:disabled):hover {
   transform: translateY(-3px);
 }
 .activity-panel {
@@ -1288,6 +1308,7 @@ input::placeholder {
   box-shadow: 0 -10px 35px #0005;
 }
 .credits-meter {
+  position: relative;
   height: var(--hand-card-height);
   display: flex;
   flex-direction: column;
@@ -1345,10 +1366,11 @@ input::placeholder {
   gap: 4px;
   font: 10px var(--font-mono);
   white-space: nowrap;
-  background: #b3a0ff16;
+  background: #1a123869;
   color: #c7baff;
   border: 1px solid #b3a0ff44;
   border-radius: 3px;
+  box-shadow: 0 2px 2px #0004;
   padding: 4px 6px;
 }
 .active-effects .effect-danger {
@@ -1498,7 +1520,7 @@ input::placeholder {
     opacity: 0;
   }
 }
-.observability-dialog {
+.pair-dialog {
   margin: auto;
   width: min(1280px, calc(100% - 32px));
   max-height: 90dvh;
@@ -1509,35 +1531,17 @@ input::placeholder {
   color: #edf3e5;
   background: #171f13;
   box-shadow: 0 20px 90px #000b;
-  cursor: pointer;
 }
-.observability-dialog::backdrop {
+.pair-dialog::backdrop {
   background: #060b06db;
   backdrop-filter: blur(8px);
 }
-.observability-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.observability-heading h2 {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  font-size: 19px;
-  font-weight: 700;
-}
-.observability-heading h2 svg {
-  color: #d3fc53;
-}
-.observed-cards {
+.pair-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
   gap: 12px;
 }
-.observed-cards .game-card {
+.pair-cards .game-card {
   height: 265px;
   aspect-ratio: auto;
 }
@@ -1839,7 +1843,7 @@ input::placeholder {
   .played-card .engineering-value > span {
     font-size: 7px;
   }
-  .reveal-card .game-card {
+  .undo-card .game-card {
     padding-right: 24px;
   }
   .winner-icon,
@@ -1923,4 +1927,230 @@ input::placeholder {
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Direction colours repeat across the larger player strip. */
+.seat-6,
+.seat-12 {
+  --seat-color: #d3fc53;
+}
+.seat-7,
+.seat-13 {
+  --seat-color: #c4a0ff;
+}
+.seat-8,
+.seat-14 {
+  --seat-color: #63d8ed;
+}
+.seat-9,
+.seat-15 {
+  --seat-color: #ff82ae;
+}
+.seat-10 {
+  --seat-color: #ffb76a;
+}
+.seat-11 {
+  --seat-color: #7fe0b5;
+}
+
+.deck-stack {
+  position: absolute;
+  left: 10px;
+  top: 45%;
+  width: 46px;
+  height: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid #70865b;
+  border-radius: 6px;
+  background: #20291d;
+  box-shadow:
+    -3px -3px #161d14,
+    -4px -4px #70865b,
+    -7px -7px #161d14,
+    -8px -8px #70865b;
+}
+.deck-stack strong {
+  font-size: 20px;
+  color: #d3fc53;
+}
+.deck-stack span {
+  font-size: 8px;
+}
+.played-card {
+  flex-shrink: 0;
+  position: relative;
+  overflow: visible;
+}
+.undo-card:not(:disabled) {
+  cursor: pointer;
+}
+.undo-card:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.undo-card:focus-visible,
+.pair-cards button:focus-visible {
+  outline: 3px solid #d3fc53;
+  outline-offset: 4px;
+}
+.credit-particles {
+  position: absolute;
+  inset: 0 0 32px;
+  z-index: 1;
+  pointer-events: none;
+}
+.credit-particles i {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #e7ff9b;
+  box-shadow: 0 0 7px #d3fc53;
+  animation: credit-spark 0.5s ease-out both;
+}
+@keyframes credit-spark {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(28px) scale(0);
+  }
+}
+.hand-card-enter {
+  animation: hand-arrival 0.18s ease-out backwards;
+}
+@keyframes hand-arrival {
+  from {
+    opacity: 0;
+    transform: translateX(-90px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.hand-cards {
+  position: relative;
+}
+.snatched-card {
+  position: absolute;
+  z-index: 8;
+  grid-column: 2;
+  left: 40%;
+  top: 12px;
+  width: clamp(148px, 13vw, 210px);
+  pointer-events: none;
+  height: var(--hand-card-height);
+  animation: card-snatch 0.65s ease-in both;
+}
+.snatched-card .game-card {
+  height: 100%;
+}
+@keyframes card-snatch {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(0, -30px) rotate(-12deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(220px, -260px) rotate(25deg) scale(0.5);
+  }
+}
+.pair-dialog h2 {
+  font-size: 22px;
+  color: #d3fc53;
+}
+.pair-dialog p {
+  margin: 12px 0 20px;
+  color: #c0c7b9;
+}
+.pair-dialog h3 {
+  margin: 18px 0 10px;
+}
+.pair-cards button {
+  border-radius: 10px;
+  cursor: pointer;
+}
+.pair-cards button:disabled {
+  opacity: 1;
+  cursor: wait;
+}
+@media (max-width: 640px) {
+  .play-surface {
+    --deck-gutter: 48px;
+    padding-left: var(--deck-gutter);
+  }
+  .deck-stack {
+    left: 6px;
+    width: 32px;
+    height: 54px;
+  }
+  .deck-stack strong {
+    font-size: 16px;
+  }
+  .deck-stack span {
+    font-size: 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hand-card-enter,
+  .snatched-card {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms !important;
+  }
+  .credit-particles {
+    display: none;
+  }
+}
+
+@keyframes board-arrival {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.board-leaving {
+  position: absolute;
+  pointer-events: none;
+  animation: none;
+  z-index: 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .played-card {
+    animation: none;
+  }
+}
+
+.pair-finish {
+  margin-top: 20px;
+}
+.pair-card-flight {
+  position: fixed;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  z-index: 100;
+  pointer-events: none;
+}
+.pair-card-flight:disabled {
+  opacity: 1;
+}
+.pair-card-flight .game-card {
+  height: 100%;
+  aspect-ratio: auto;
 }

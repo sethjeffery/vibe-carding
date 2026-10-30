@@ -40,7 +40,7 @@ it('plays effect-specific notes, keeps discards neutral, and respects mute', asy
       }
     },
   )
-  const { playCardSound, setSound } = await import('./sound')
+  const { playCardSound, playSound, setSound } = await import('./sound')
   for (const id of [
     'fable',
     'cache',
@@ -61,7 +61,7 @@ it('plays effect-specific notes, keeps discards neutral, and respects mute', asy
   }
   for (const [id, notes] of [
     ['bug', [392, 523, 784]],
-    ['observe', [880, 1320, 880]],
+    ['pair-programming', [330, 440, 554, 660]],
     ['squad', [660, 440, 330, 660]],
     ['unknown', [260, 520]],
   ] as const) {
@@ -72,6 +72,9 @@ it('plays effect-specific notes, keeps discards neutral, and respects mute', asy
   frequencies.length = 0
   playCardSound('webinar', true)
   expect(frequencies).toEqual([260, 520])
+  frequencies.length = 0
+  playSound('snatch')
+  expect(frequencies).toEqual([880, 440, 220])
   setSound(false)
   frequencies.length = 0
   playCardSound('fable')

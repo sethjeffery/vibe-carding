@@ -34,9 +34,7 @@ describe('game rules', () => {
       expect(caster.actionsUsed).toBe(1)
       expect(canPlay(state, caster, CARDS['rate-limited'])).toBe(false)
       expect(state.activePlayerId).toBe(caster.id)
-      expect(projectGame(state, target.id).players[0].pending).toEqual([
-        { skipTurn: true },
-      ])
+      expect(projectGame(state, target.id).players[0].pending).toEqual([])
       resolveAction(state, caster.id, { type: 'end-turn' })
       expect(state.activePlayerId).toBe(state.players[1].id)
       expect(state.turn).toBe(3)
@@ -276,6 +274,8 @@ describe('game rules', () => {
       resolveAction(state, 'a', { type: 'play', cardInstanceId: `t${i}` })
     expect(me.actionsUsed).toBe(1)
     resolveAction(state, 'a', { type: 'end-turn' })
+    expect(me.hand).toHaveLength(0)
+    resolveAction(state, 'b', { type: 'end-turn' })
     expect(me.hand).toHaveLength(7)
   })
 
@@ -329,8 +329,10 @@ describe('game rules', () => {
     expect(me.hand).toHaveLength(0)
     expect(me.tokens).toBe(0)
     resolveAction(state, 'a', { type: 'end-turn' })
-    expect(me.hand).toHaveLength(7)
+    expect(me.hand).toHaveLength(0)
     expect(me.mustEmptyHand).toBe(false)
+    resolveAction(state, 'b', { type: 'end-turn' })
+    expect(me.hand).toHaveLength(7)
     expect(me.actionLimit).toBe(3)
   })
 
@@ -342,6 +344,9 @@ describe('game rules', () => {
     state.drawPile = []
     state.discardPile = ['bug', 'fable']
     resolveAction(state, 'a', { type: 'end-turn' })
+    expect(me.hand).toEqual(retained)
+    expect(state.discardPile).toEqual(['bug', 'fable'])
+    resolveAction(state, 'b', { type: 'end-turn' })
     expect(me.hand.slice(0, 5)).toEqual(retained)
     expect(me.hand).toHaveLength(7)
     expect(state.discardPile).toHaveLength(0)
@@ -363,27 +368,19 @@ describe('game rules', () => {
     expect(rival.modelBlocked).toBe(false)
   })
 
-  it('resolves score attacks and immediate victory atomically', () => {
+  it('resolves score attacks in order only at commitment', () => {
     const state = started()
     const [me, rival] = state.players
-    me.hand = ['direction', 'swap', 'webinar'].map((id) => ({
+    me.hand = ['direction', 'swap'].map((id) => ({
       instanceId: id,
       definitionId: id,
     }))
     rival.tokens = 3001
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'direction' })
-    expect(rival.tokens).toBe(2400)
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'swap' })
+    expect([me.tokens, rival.tokens]).toEqual([0, 3001])
+    resolveAction(state, 'a', { type: 'end-turn' })
     expect([me.tokens, rival.tokens]).toEqual([2400, 0])
-    me.tokens = 9900
-    rival.tokens = 200
-    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'webinar' })
-    expect(me.tokens).toBe(10100)
-    expect(rival.tokens).toBe(0)
-    expect(state.winnerId).toBe('a')
-    expect(() => resolveAction(state, 'a', { type: 'end-turn' })).toThrow(
-      'not active',
-    )
   })
 
   it('projects only authorised hands and never leaks deck order or RNG', () => {
@@ -394,12 +391,26 @@ describe('game rules', () => {
     expect(view).not.toHaveProperty('drawPile')
     expect(view).not.toHaveProperty('discardPile')
     expect(view).not.toHaveProperty('rng')
-    state.players[0].hand = [{ instanceId: 'observe', definitionId: 'observe' }]
-    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'observe' })
+    state.players[0].hand = [
+      { instanceId: 'pair', definitionId: 'pair-programming' },
+    ]
+    resolveAction(state, 'a', { type: 'play', cardInstanceId: 'pair' })
+    expect(projectGame(state, 'a').players[1].hand).toBeNull()
+    expect(projectGame(state, 'a')).not.toHaveProperty('undoHistory')
+    resolveAction(state, 'a', { type: 'end-turn' })
+    expect(projectGame(state, 'a').players[1].hand).toBeNull()
+    resolveAction(state, 'b', { type: 'end-turn' })
     view = projectGame(state, 'a')
     expect(view.players[1].hand).toHaveLength(7)
     expect(projectGame(state, 'b').players[0].hand).toBeNull()
-    resolveAction(state, 'a', { type: 'end-turn' })
+    expect(() => resolveAction(state, 'a', { type: 'undo' })).toThrow(
+      'Choose cards',
+    )
+    for (const card of [...state.players[1].hand])
+      resolveAction(state, 'a', {
+        type: 'take-card',
+        cardInstanceId: card.instanceId,
+      })
     expect(projectGame(state, 'a').players[1].hand).toBeNull()
   })
 
@@ -442,13 +453,13 @@ describe('game rules', () => {
     expect(state).toEqual(before)
   })
 
-  it('deals a deterministic 85-card pool with unique card instances', () => {
+  it('deals a deterministic 87-card pool with unique card instances', () => {
     const first = started()
     const second = started()
     expect(
       first.drawPile.length +
         first.players.reduce((n, p) => n + p.hand.length, 0),
-    ).toBe(85)
+    ).toBe(87)
     expect(first.drawPile).toEqual(second.drawPile)
     expect(
       new Set(first.players.flatMap((p) => p.hand.map((c) => c.instanceId)))
@@ -541,18 +552,17 @@ describe('configurable card mechanics', () => {
         target: 'all',
         stealTokens: 75,
         tokenMultiplier: 0.5,
-        observability: true,
       }),
     ]
     resolveAction(state, 'a', { type: 'play', cardInstanceId: 'custom' })
-    expect([me.tokens, b.tokens, c.tokens]).toEqual([87, 0, 75])
-    expect(me.revealPlayerIds).toEqual(['b', 'c'])
-    expect(projectGame(state, 'a').players.every((p) => p.hand !== null)).toBe(
-      true,
-    )
-    expect(projectGame(state, 'b').players[2].hand).toBeNull()
+    expect([me.tokens, b.tokens, c.tokens]).toEqual([0, 25, 300])
+    expect(
+      projectGame(state, 'a')
+        .players.slice(1)
+        .every((p) => p.hand === null),
+    ).toBe(true)
     resolveAction(state, 'a', { type: 'end-turn' })
-    expect(projectGame(state, 'a').players[1].hand).toBeNull()
+    expect([me.tokens, b.tokens, c.tokens]).toEqual([87, 0, 75])
   })
 
   it('queues numeric modifiers and disables before the target turn, then expires them', () => {
