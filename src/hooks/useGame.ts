@@ -8,6 +8,7 @@ import {
 } from '../lib/api'
 import { playCardSound, playSound } from '../lib/sound'
 import { chooseAIAction } from '../lib/ai'
+import { optimisticCardAction } from '../lib/optimistic'
 
 export function useGame() {
   const initialCode =
@@ -17,18 +18,22 @@ export function useGame() {
   const [busy, setBusy] = useState(false)
   const [restoring, setRestoring] = useState(Boolean(initialCode))
   const roomRef = useRef<GameResponse | null>(null)
+  const optimistic = useRef<GameResponse | null>(null)
   const lock = useRef(false)
   const mounted = useRef(true)
   const generation = useRef(0)
 
   const accept = useCallback((next: GameResponse) => {
     if (!mounted.current) return
-    const previous = roomRef.current
+    const confirmed = roomRef.current
     if (
-      previous?.gameId === next.gameId &&
-      previous.game.revision > next.game.revision
+      confirmed?.gameId === next.gameId &&
+      (confirmed.game.revision > next.game.revision ||
+        (optimistic.current && confirmed.game.revision === next.game.revision))
     )
       return
+    const previous = optimistic.current ?? confirmed
+    optimistic.current = null
     if (
       previous?.gameId === next.gameId &&
       next.game.revision > previous.game.revision
@@ -124,13 +129,39 @@ export function useGame() {
       setBusy(true)
       setError('')
       const startedAt = generation.current
+      const current = roomRef.current
+      if (
+        current &&
+        body.op === 'action' &&
+        body.code === current.code &&
+        body.expectedRevision === current.game.revision &&
+        !body.aiPlayerId &&
+        body.action
+      ) {
+        const game = optimisticCardAction(current.game, body.action)
+        if (game) {
+          optimistic.current = { ...current, game }
+          setRoom(optimistic.current)
+          if (game.status === 'finished') playSound('win')
+          else playCardSound(game.events[0].cardId!, game.events[0].discarded)
+        }
+      }
       try {
         const next = await gameRequest(body)
         if (startedAt === generation.current) accept(next)
       } catch (cause) {
-        if (cause instanceof GameError && cause.stale && body.code) {
+        if (startedAt !== generation.current || !mounted.current) return
+        if (optimistic.current) {
+          optimistic.current = null
+          setRoom(roomRef.current)
+        }
+        if (
+          body.code &&
+          (body.op === 'action' || (cause instanceof GameError && cause.stale))
+        ) {
           await refresh(body.code).catch(() => undefined)
         }
+        if (startedAt !== generation.current || !mounted.current) return
         setError(
           cause instanceof Error
             ? cause.message
@@ -168,6 +199,7 @@ export function useGame() {
 
   function leave() {
     generation.current++
+    optimistic.current = null
     roomRef.current = null
     setRoom(null)
     setError('')

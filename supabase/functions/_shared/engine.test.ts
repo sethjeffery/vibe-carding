@@ -130,7 +130,7 @@ describe('game rules', () => {
       resolveAction(state, 'a', { type: 'play', cardInstanceId: id })
     }
     expect(me.credits).toBe(0)
-    expect(me.tokens).toBe(ids.includes('max') ? 1500 : 750)
+    expect(me.tokens).toBe(ids.includes('max') ? 1700 : 850)
     expect(me.actionsUsed).toBe(3)
     expect(state.events[0].economics?.cost).toBe(0)
     expect(canPlay(state, me, CARDS.beta)).toBe(false)

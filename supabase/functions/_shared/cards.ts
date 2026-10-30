@@ -103,10 +103,10 @@ const definitions: Array<
     450,
     'Bloat for the next AI to summarize.',
   ],
-  ['ship-api', 'Ship an API', 'engineering', {}, 350, 'Microservices!'],
+  ['ship-api', 'Add REST API', 'engineering', {}, 350, 'Microservices!'],
   [
     'graphql-api',
-    'Ship a GraphQL API',
+    'Add GraphQL API',
     'engineering',
     {},
     500,
@@ -141,7 +141,7 @@ const definitions: Array<
     'Vibe Code MVP',
     'engineering',
     {},
-    750,
+    850,
     'Production is the test suite.',
   ],
   [

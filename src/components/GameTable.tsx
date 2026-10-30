@@ -354,7 +354,9 @@ export function GameTable({
           <span>credits</span>
         </div>
         <div className="hand-cards">
-          {me.hand?.map((instance) => {
+          {me.hand?.map((instance, index, hand) => {
+            const angle =
+              hand.length > 1 ? -2 + (index * 4) / (hand.length - 1) : 0
             const playable = canPlay(game, me, instance.card)
             const slotCost =
               instance.card.kind === 'engineering'
@@ -369,6 +371,10 @@ export function GameTable({
               <button
                 key={instance.instanceId}
                 className={`hand-card ${!playable ? 'unplayable' : ''}`}
+                style={{
+                  rotate: `${angle}deg`,
+                  translate: `0 ${angle ** 2 * 1.5}px`,
+                }}
                 disabled={!allowed}
                 onClick={() =>
                   onAction({

@@ -64,15 +64,15 @@ it('finds a seven-card credit-free combo beyond the normal action limit', () => 
   expect(played).toContain('beta')
   expect(played).toContain('fable')
   expect(played).toContain('max')
-  expect(state.players[1].tokens).toBe(9000)
+  expect(state.players[1].tokens).toBe(10200)
   expect(state.players[1].credits).toBe(0)
 })
 
 it('spends credits before resetting them and uses the refill to ship again', () => {
   const state = scenario(['mvp', 'reset', 'mvp'])
   expect(playTurn(state)).toEqual(['mvp', 'reset', 'mvp'])
-  expect(state.players[1].tokens).toBe(1500)
-  expect(state.players[1].credits).toBe(250)
+  expect(state.players[1].tokens).toBe(1700)
+  expect(state.players[1].credits).toBe(150)
 })
 
 it('takes a winning swap immediately and never swaps its lead away', () => {

@@ -32,6 +32,36 @@ function render(state: GameState, userId: string) {
   )
 }
 
+it.each([[], [0], [-2, 2], [-2, 0, 2], [-2, -1, 0, 1, 2]])(
+  'fans the hand evenly with angles %j',
+  (...angles: number[]) => {
+    const state = started()
+    state.players[0].hand = angles.map((_, index) => ({
+      instanceId: `card-${index}`,
+      definitionId: 'bug',
+    }))
+    const rotations = [
+      ...render(state, 'a').matchAll(/style="rotate:([^";]+)deg;/g),
+    ]
+    expect(rotations.map((match) => Number(match[1]))).toEqual(angles)
+  },
+)
+
+it.each([[], [0], [6, 6], [6, 0, 6], [6, 1.5, 0, 1.5, 6]])(
+  'curves the hand with vertical offsets %j',
+  (...offsets: number[]) => {
+    const state = started()
+    state.players[0].hand = offsets.map((_, index) => ({
+      instanceId: `card-${index}`,
+      definitionId: 'bug',
+    }))
+    const translations = [
+      ...render(state, 'a').matchAll(/translate:0 ([\d.]+)px/g),
+    ]
+    expect(translations.map((match) => Number(match[1]))).toEqual(offsets)
+  },
+)
+
 it('celebrates only the winning tile for every viewer', () => {
   const state = started()
   expect(render(state, 'a')).not.toContain('player-winner')

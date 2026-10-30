@@ -1361,8 +1361,8 @@ input::placeholder {
   grid-template-columns: repeat(7, minmax(148px, 1fr));
   gap: 10px;
   overflow-x: auto;
-  padding: 6px 4px 8px;
-  margin: -6px -4px 0;
+  padding: 8px 10px 14px;
+  margin: -8px -10px 0;
   scrollbar-width: thin;
   scrollbar-color: #596e3c transparent;
 }
@@ -1374,14 +1374,18 @@ input::placeholder {
   border: 0;
   border-radius: 9px;
   text-align: left;
-  transition: transform 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    rotate 0.18s ease,
+    translate 0.18s ease;
 }
 .hand-card .game-card {
   height: var(--hand-card-height);
   aspect-ratio: auto;
   padding: 11px;
 }
-.hand-card:not(:disabled):hover {
+.hand-card:not(:disabled):hover,
+.hand-card:not(:disabled):focus-visible {
   transform: translateY(-4px);
   z-index: 2;
 }
